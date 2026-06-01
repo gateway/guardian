@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-STATE_DIR = Path(os.getenv("GUARDIAN_STATE_DIR", str(PROJECT_ROOT / "state"))).expanduser()
+PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = PLUGIN_ROOT
+STATE_DIR = Path(os.getenv("GUARDIAN_STATE_DIR", str(Path.home() / ".guardian-security-scan"))).expanduser()
 SEED_CATALOG_DIR = Path(
-    os.getenv("GUARDIAN_SEED_CATALOG_DIR", str(PROJECT_ROOT / "data" / "local_catalogs"))
+    os.getenv("GUARDIAN_SEED_CATALOG_DIR", str(PLUGIN_ROOT / "data" / "local_catalogs"))
 ).expanduser()
 DEFAULT_CONFIG_PATH = STATE_DIR / "config.json"
 
