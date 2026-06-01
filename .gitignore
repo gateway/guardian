@@ -1,26 +1,14 @@
 .DS_Store
 __pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-node_modules/
-
-# Guardian local state and generated reports must not be committed.
-state/
+*.pyc
 .guardian-security-scan/
-guardian.db*
+state/
 reports/
-exports/
-scans/
-source_cache/
-
-# Secrets
+*.sqlite
+*.sqlite3
+*.db
 .env
 .env.*
-*.pem
-*.key
-*.p12
-*.pfx
+node_modules/
+.venv/
+venv/

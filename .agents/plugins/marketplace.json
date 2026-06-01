@@ -1,0 +1,20 @@
+{
+  "name": "guardian",
+  "interface": {
+    "displayName": "Guardian"
+  },
+  "plugins": [
+    {
+      "name": "guardian-security-scan",
+      "source": {
+        "source": "local",
+        "path": "./plugins/guardian-security-scan"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
