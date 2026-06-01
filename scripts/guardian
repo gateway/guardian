@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$PLUGIN_ROOT/guardian_runtime/src${PYTHONPATH:+:$PYTHONPATH}"
+export GUARDIAN_STATE_DIR="${GUARDIAN_STATE_DIR:-$HOME/.guardian-security-scan}"
+export GUARDIAN_SEED_CATALOG_DIR="${GUARDIAN_SEED_CATALOG_DIR:-$PLUGIN_ROOT/data/local_catalogs}"
+
+exec /usr/bin/python3 -m guardian.cli "$@"

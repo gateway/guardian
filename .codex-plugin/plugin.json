@@ -1,0 +1,42 @@
+{
+  "name": "guardian-security-scan",
+  "version": "1.0.0+codex.20260601140630",
+  "description": "Guardian scans npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
+  "author": {
+    "name": "Dreaming Computers",
+    "url": "https://github.com/gateway"
+  },
+  "homepage": "https://github.com/gateway/guardian",
+  "repository": "https://github.com/gateway/guardian",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "dependency-scan",
+    "supply-chain",
+    "vulnerability",
+    "npm",
+    "pypi",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Guardian Security Scan",
+    "shortDescription": "Scan project dependencies for known supply-chain risk.",
+    "longDescription": "Guardian Security Scan gives Codex a practical dependency-risk workflow for modern projects. It inventories npm and Python packages, checks exact versions against multiple advisory and exploit-intelligence sources, separates direct runtime risk from transitive, tooling-only, isolated-environment, and vendored-metadata noise, and produces operator-friendly summaries that explain what matters, what changed since the last scan, and what action is justified. Use it before releases, after dependency changes, when reviewing a reported advisory, or when you want Codex to reduce supply-chain risk without creating unnecessary dependency churn.",
+    "developerName": "Dreaming Computers",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://dreamingcomputers.com/",
+    "privacyPolicyURL": "https://dreamingcomputers.com/privacy-policy/",
+    "termsOfServiceURL": "https://dreamingcomputers.com/terms-and-conditions/",
+    "defaultPrompt": [
+      "Scan this project with Guardian.",
+      "Check this repo for package risk.",
+      "Review dependency bloat safely."
+    ],
+    "brandColor": "#0F766E"
+  }
+}
