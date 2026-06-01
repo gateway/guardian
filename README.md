@@ -6,6 +6,22 @@ Use Guardian when you want Codex to answer: "Is this project carrying known pack
 
 Guardian is built for modern AI-assisted development, where packages can accumulate quickly, lockfiles may contain stale nested metadata, and not every scary advisory is a production incident.
 
+## How It Works
+
+Guardian scans project evidence in read-only mode, matches package versions against security intelligence, and produces compact artifacts for Codex and humans to review.
+
+```mermaid
+flowchart LR
+    A["Project files<br/>package.json, lockfiles,<br/>requirements, pyproject"] --> B["Read-only inventory<br/>no dependency edits<br/>no project code execution"]
+    B --> C["Normalize packages<br/>ecosystem, name,<br/>version, scope"]
+    C --> D["Match intelligence<br/>OSV, GHSA, KEV,<br/>EPSS, NVD, GitLab,<br/>local malicious catalogs"]
+    D --> E["Corroborate context<br/>runtime, transitive,<br/>tooling-only, isolated,<br/>vendored metadata"]
+    E --> F["Prioritize evidence<br/>known vulnerable,<br/>known exploited,<br/>malicious, high likelihood"]
+    F --> G["Operator output<br/>JSON, Markdown handoff,<br/>snapshot comparison"]
+```
+
+The scan path is intentionally read-only. Guardian can recommend next steps, but normal project scans do not modify dependency files or run arbitrary project code.
+
 ## Why Use Guardian
 
 - Catch known vulnerable, known exploited, malicious, and high exploit-likelihood packages before release or merge.
