@@ -1,3 +1,5 @@
+"""Markdown handoff report rendering for Codex-to-Codex or maintainer review."""
+
 from __future__ import annotations
 
 from pathlib import Path

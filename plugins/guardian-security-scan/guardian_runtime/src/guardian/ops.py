@@ -1,3 +1,5 @@
+"""High-level project scan orchestration, including budgets, optional live-source enrichment, reports, and snapshots."""
+
 from __future__ import annotations
 
 import signal
@@ -25,6 +27,8 @@ from .util import utc_now, write_json
 
 
 class ScanBudgetExceeded(RuntimeError):
+    """Raised when a project scan exceeds its configured wall-clock budget."""
+
     pass
 
 
@@ -45,17 +49,28 @@ def run_project_scan(
     max_seconds: int | None = None,
     engine: str | None = None,
 ) -> dict:
+    """Run the complete read-only project scan pipeline for one repository root.
+
+    The pipeline is deliberately phase-based so Guardian can report partial
+    progress, enforce scan budgets, and keep optional expensive work isolated
+    from the core inventory/advisory/triage path.
+    """
+
     selected_ecosystems = ecosystems or list(DEFAULT_ECOSYSTEMS)
     phases: list[dict] = []
     started_at = utc_now()
     run_started = time.monotonic()
 
     def remaining_seconds() -> float | None:
+        """Return the remaining scan budget, or None for unbounded scans."""
+
         if max_seconds is None:
             return None
         return max_seconds - (time.monotonic() - run_started)
 
     def run_phase(name: str, callback, *, required: bool = True):
+        """Execute one named phase and record timing/status for operator output."""
+
         phase_started = time.monotonic()
         remaining = remaining_seconds()
         if remaining is not None and remaining <= 0:
@@ -121,6 +136,10 @@ def run_project_scan(
     status = "ok"
     budget_error = None
     try:
+        # Phase order matters: inventory establishes the exact package universe;
+        # optional intel enrichment can add local exact-match catalog entries;
+        # advisory refresh records findings; triage turns those rows into
+        # operator decisions; snapshots make later fix verification possible.
         inventory_runs = run_phase(
         "inventory",
         lambda: scan_roots(

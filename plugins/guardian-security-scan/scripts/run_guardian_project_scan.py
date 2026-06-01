@@ -14,6 +14,8 @@ GUARDIAN = PLUGIN_ROOT / "scripts" / "guardian"
 
 
 def detect_repo_root(start: Path) -> Path:
+    """Resolve the Git repo root when possible, otherwise keep the current path."""
+
     try:
         completed = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -30,6 +32,8 @@ def detect_repo_root(start: Path) -> Path:
 
 
 def run_guardian(args: list[str]) -> dict:
+    """Run the bundled Guardian CLI and parse its JSON output."""
+
     completed = subprocess.run(
         [str(GUARDIAN), *args, "--json"],
         capture_output=True,
@@ -47,6 +51,8 @@ def run_guardian(args: list[str]) -> dict:
 
 
 def compact_package(item: dict) -> dict:
+    """Reduce a package action to the fields useful in skill responses."""
+
     confidence = item.get("confidence")
     confidence_label = confidence.get("label") if isinstance(confidence, dict) else confidence
     low_action = item.get("environment_label") == "vendored-lockfile" and confidence_label == "Low Confidence"
@@ -67,10 +73,14 @@ def compact_package(item: dict) -> dict:
 
 
 def is_low_action(item: dict) -> bool:
+    """Return True when a package should be framed as non-actionable metadata."""
+
     return item.get("environment") == "vendored-lockfile" and item.get("confidence") == "Low Confidence"
 
 
 def advisory_note(top_packages: list[dict]) -> str | None:
+    """Add an operator warning when the priority list is mostly vendored noise."""
+
     vendored = [item for item in top_packages if item.get("environment") == "vendored-lockfile"]
     if top_packages and len(vendored) >= max(3, len(top_packages) // 2):
         return (
@@ -81,6 +91,8 @@ def advisory_note(top_packages: list[dict]) -> str | None:
 
 
 def print_human_summary(payload: dict) -> None:
+    """Print a short operator summary for non-JSON skill runner usage."""
+
     print(f"root: {payload['root']}")
     print(f"priority: {payload['triage_headline']}")
     print(f"compare: {payload['compare_headline']}")

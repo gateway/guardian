@@ -1,3 +1,5 @@
+"""SQLite persistence methods for inventory runs and current package state."""
+
 from __future__ import annotations
 
 import json

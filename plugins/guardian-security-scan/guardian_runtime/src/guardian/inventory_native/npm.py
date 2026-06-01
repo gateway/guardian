@@ -1,3 +1,5 @@
+"""npm, pnpm, Yarn, and installed node_modules parsers for native inventory scans."""
+
 from __future__ import annotations
 
 import json
@@ -43,6 +45,8 @@ def _manifest_dependency_info(lockfile: Path) -> dict[str, tuple[bool, str]]:
 
 
 def parse_package_lock(path: Path, root: Path) -> list[dict]:
+    """Parse npm package-lock and shrinkwrap files into package records."""
+
     try:
         payload = _load_json(path)
     except Exception:
@@ -144,6 +148,8 @@ def _name_from_node_modules_key(key: str) -> str | None:
 
 
 def parse_node_package_json(path: Path, root: Path) -> list[dict]:
+    """Parse installed node_modules package metadata for corroboration scans."""
+
     try:
         payload = _load_json(path)
     except Exception:
@@ -181,6 +187,8 @@ _PNPM_PACKAGE_RE = re.compile(r"^  ([^\s].*):\s*$")
 
 
 def parse_pnpm_lock(path: Path, root: Path) -> list[dict]:
+    """Parse pnpm lockfiles with a small purpose-built reader."""
+
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except Exception:
@@ -272,6 +280,8 @@ def _parse_pnpm_package_key(key: str) -> tuple[str, str] | None:
 
 
 def parse_yarn_lock(path: Path, root: Path) -> list[dict]:
+    """Parse Yarn lockfiles, including low-confidence vendored nested locks."""
+
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except Exception:

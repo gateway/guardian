@@ -1,3 +1,5 @@
+"""Threat-intelligence ingestion for advisory YAML sources and generated local exact-match catalogs."""
+
 from __future__ import annotations
 
 import json

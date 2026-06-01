@@ -1,3 +1,5 @@
+"""Snapshot creation and comparison rendering for new/resolved/changed finding tracking."""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,5 @@
+"""NVD client for CVE detail and severity enrichment."""
+
 from __future__ import annotations
 
 import json

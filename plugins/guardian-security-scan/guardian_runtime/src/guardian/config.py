@@ -1,3 +1,5 @@
+"""Runtime configuration, state-directory setup, bundled catalog seeding, and optional GitHub token discovery."""
+
 from __future__ import annotations
 
 import json

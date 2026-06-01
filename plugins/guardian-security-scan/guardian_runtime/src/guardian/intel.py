@@ -1,3 +1,5 @@
+"""Advisory normalization helpers for severity, aliases, URLs, summaries, and package name matching."""
+
 from __future__ import annotations
 
 import json

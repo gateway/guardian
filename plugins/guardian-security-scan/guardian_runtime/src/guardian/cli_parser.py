@@ -1,3 +1,5 @@
+"""Argparse command tree for the Guardian CLI."""
+
 from __future__ import annotations
 
 """Argument parser construction for the Guardian CLI.
@@ -164,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate = sub.add_parser("validate")
     validate_sub = validate.add_subparsers(dest="validate_command", required=True)
     plugin_release = validate_sub.add_parser("plugin-release")
-    plugin_release.add_argument("--source-dir", default="state/source_cache/gitlab-advisory-db")
+    plugin_release.add_argument("--source-dir")
     plugin_release.add_argument("--json", action="store_true")
 
     return parser

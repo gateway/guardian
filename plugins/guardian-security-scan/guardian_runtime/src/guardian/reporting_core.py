@@ -1,3 +1,5 @@
+"""Core report assembly for summary, open findings, hygiene, and grouped issue views."""
+
 from __future__ import annotations
 
 from collections import defaultdict

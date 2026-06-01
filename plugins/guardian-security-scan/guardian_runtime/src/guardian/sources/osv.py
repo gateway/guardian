@@ -1,3 +1,5 @@
+"""OSV client for batch package vulnerability lookup and advisory detail retrieval."""
+
 from __future__ import annotations
 
 import json

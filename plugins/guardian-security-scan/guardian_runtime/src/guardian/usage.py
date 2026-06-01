@@ -1,3 +1,5 @@
+"""General source usage search used by triage and package review flows."""
+
 from __future__ import annotations
 
 import subprocess

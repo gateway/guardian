@@ -1,3 +1,5 @@
+"""Refresh vulnerability findings by matching inventory records against OSV, GHSA, NVD, KEV, EPSS, and local malicious-package catalogs."""
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,6 +29,13 @@ def refresh_findings(
     ghsa_max_packages: int = 50,
     root_paths: list[str] | None = None,
 ) -> dict:
+    """Refresh open findings for the current package inventory.
+
+    OSV is the broad default source. GHSA is optional and bounded because exact
+    advisory queries can be expensive on large repos. Local catalogs are always
+    checked so malicious-package campaigns can be caught without network access.
+    """
+
     packages = [
         dict(row)
         for row in db.current_packages()
@@ -46,6 +55,9 @@ def refresh_findings(
         key = (package["ecosystem"], package["normalized_name"], package["version"])
         osv_by_package[key] = result.get("vulns", [])
 
+    # GHSA exact-match checks are intentionally capped. When a repo is too large,
+    # Guardian prefers direct dependencies first instead of spending a scan budget
+    # on every transitive package.
     ghsa_target_packages: dict[tuple[str, str, str], dict] = {}
     if include_ghsa:
         unique_packages = _unique_package_versions(packages)
@@ -68,6 +80,9 @@ def refresh_findings(
     if ghsa_target_packages:
         ghsa_exact_cache, ghsa_error = _fetch_ghsa_exact_matches(ghsa, ghsa_target_packages)
     for package in packages:
+        # Each package is resolved source-by-source, then stale findings for that
+        # package/source are closed. This lets a later scan prove that a fix
+        # actually removed the matching vulnerable version.
         key = (package["ecosystem"], package["normalized_name"], package["version"])
         matched_osv_ids = []
         for vuln_stub in osv_by_package.get(key, []):
@@ -237,6 +252,9 @@ def refresh_findings(
                 active_advisory_ids=ghsa_ids,
             )
 
+        # Local catalogs are exact-match malicious/campaign intelligence. They do
+        # not need live network access and are useful for supply-chain incidents
+        # that may not be fully represented in general vulnerability databases.
         local_matches = local_catalog.match(package["ecosystem"], package["package_name"], package["version"])
         local_ids = []
         for entry in local_matches:
@@ -295,6 +313,8 @@ def refresh_findings(
 
 
 def _unique_package_versions(packages: list[dict]) -> list[dict]:
+    """Return one inventory row per ecosystem/name/version tuple."""
+
     selected = []
     seen: set[tuple[str, str, str]] = set()
     for package in packages:

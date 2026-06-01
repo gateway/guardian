@@ -1,3 +1,5 @@
+"""Lightweight integrity helpers for hashing files and validating local artifacts."""
+
 from __future__ import annotations
 
 import hashlib

@@ -1,3 +1,5 @@
+"""Remediation lifecycle logic that tracks whether findings are open, resolved, or changed across scans."""
+
 from __future__ import annotations
 
 import json

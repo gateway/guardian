@@ -1,3 +1,5 @@
+"""Export exact-match advisory catalogs for external review and fixture checks."""
+
 from __future__ import annotations
 
 from pathlib import Path

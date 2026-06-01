@@ -1,3 +1,5 @@
+"""Compact operator JSON report generation for low-token Codex consumption."""
+
 from __future__ import annotations
 
 from pathlib import Path

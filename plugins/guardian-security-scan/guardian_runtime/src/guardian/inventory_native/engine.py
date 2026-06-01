@@ -1,3 +1,5 @@
+"""Native inventory engine that walks candidate files and emits normalized package records."""
+
 from __future__ import annotations
 
 import json

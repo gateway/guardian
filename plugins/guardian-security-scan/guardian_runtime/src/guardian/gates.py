@@ -1,3 +1,5 @@
+"""Package install gate helpers for checking a package/version before adding it to a project."""
+
 from __future__ import annotations
 
 import json

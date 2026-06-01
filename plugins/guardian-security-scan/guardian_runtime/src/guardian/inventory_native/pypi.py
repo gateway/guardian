@@ -1,3 +1,5 @@
+"""Python package metadata parser for installed PyPI distributions."""
+
 from __future__ import annotations
 
 import json

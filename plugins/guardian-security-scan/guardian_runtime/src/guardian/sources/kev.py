@@ -1,3 +1,5 @@
+"""CISA Known Exploited Vulnerabilities client for exploited-in-the-wild enrichment."""
+
 from __future__ import annotations
 
 import json

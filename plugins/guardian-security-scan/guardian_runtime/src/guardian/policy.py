@@ -1,3 +1,5 @@
+"""Policy model and exception matching for suppressing or allowing known findings intentionally."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

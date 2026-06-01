@@ -1,3 +1,5 @@
+"""Canonical package-record builder used by native inventory parsers."""
+
 from __future__ import annotations
 
 import hashlib

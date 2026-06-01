@@ -1,3 +1,5 @@
+"""Human-readable terminal rendering for Guardian CLI commands."""
+
 from __future__ import annotations
 
 

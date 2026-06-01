@@ -10,5 +10,8 @@ reports/
 .env
 .env.*
 node_modules/
+!tests/fixtures/vendored-yarn-metadata/node_modules/
+!tests/fixtures/vendored-yarn-metadata/node_modules/uri-js/
+!tests/fixtures/vendored-yarn-metadata/node_modules/uri-js/yarn.lock
 .venv/
 venv/

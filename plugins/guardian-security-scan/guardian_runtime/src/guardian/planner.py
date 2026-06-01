@@ -1,3 +1,5 @@
+"""Candidate resolver for safer upgrade target selection and local catalog awareness."""
+
 from __future__ import annotations
 
 from functools import cmp_to_key

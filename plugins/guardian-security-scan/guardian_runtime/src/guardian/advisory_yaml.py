@@ -1,3 +1,5 @@
+"""Parse GitLab-style advisory YAML without third-party YAML dependencies."""
+
 from __future__ import annotations
 
 from pathlib import Path

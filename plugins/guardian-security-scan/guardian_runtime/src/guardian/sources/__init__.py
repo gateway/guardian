@@ -1,3 +1,5 @@
+"""Source client exports for live advisory feeds and local exact-match catalogs."""
+
 from .epss import EPSSClient
 from .ghsa import GitHubAdvisoriesClient
 from .kev import KEVClient

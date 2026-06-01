@@ -1,3 +1,5 @@
+"""Small parser regression corpus for advisory range handling bugs that previously caused false positives."""
+
 from __future__ import annotations
 
 from .advisory_yaml import parse_advisory_yaml

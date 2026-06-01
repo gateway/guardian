@@ -1,3 +1,5 @@
+"""Keyword and hygiene signal extraction used by triage scoring."""
+
 from __future__ import annotations
 
 import re

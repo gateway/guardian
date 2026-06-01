@@ -1,3 +1,5 @@
+"""Thin database facade that composes schema, inventory, finding, policy, and snapshot storage mixins."""
+
 from __future__ import annotations
 
 import sqlite3

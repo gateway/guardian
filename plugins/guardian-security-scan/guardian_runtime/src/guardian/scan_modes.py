@@ -1,3 +1,5 @@
+"""Named scan-mode defaults for daily, standard, deep, and handoff scans."""
+
 from __future__ import annotations
 
 

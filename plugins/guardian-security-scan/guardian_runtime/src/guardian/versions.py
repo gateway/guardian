@@ -1,3 +1,5 @@
+"""Dependency-free version parsing and affected-range matching helpers."""
+
 from __future__ import annotations
 
 import re

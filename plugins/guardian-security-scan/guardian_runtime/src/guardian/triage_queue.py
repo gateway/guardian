@@ -1,3 +1,5 @@
+"""Prioritized package queue builders for daily briefs and remediation review."""
+
 from __future__ import annotations
 
 from collections import defaultdict

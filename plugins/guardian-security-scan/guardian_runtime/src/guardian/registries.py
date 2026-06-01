@@ -1,3 +1,5 @@
+"""Registry metadata helpers for ecosystem-specific package lookup conventions."""
+
 from __future__ import annotations
 
 import json

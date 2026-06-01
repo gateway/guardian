@@ -1,3 +1,5 @@
+"""Root-cause grouping helpers that collapse repeated package findings into actionable clusters."""
+
 from __future__ import annotations
 
 import json

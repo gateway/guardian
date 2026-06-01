@@ -1,3 +1,5 @@
+"""Command-line dispatcher for Guardian scans, inventory import, gates, reporting, and release validation."""
+
 from __future__ import annotations
 
 import os
@@ -35,11 +37,15 @@ from .watchlist import run_watchlist
 
 
 def _severity_sort_key(value: str | None) -> int:
+    """Convert advisory severity labels into a stable ordering for summaries."""
+
     order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
     return order.get((value or "").lower(), 0)
 
 
 def _dedupe_gate_findings(findings: list[dict]) -> list[dict]:
+    """Collapse duplicate gate findings while preserving the strongest severity."""
+
     grouped: dict[str, dict] = {}
     for item in findings:
         key = item["id"]
@@ -60,6 +66,12 @@ def _dedupe_gate_findings(findings: list[dict]) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse CLI arguments and route each subcommand to the matching workflow.
+
+    The CLI intentionally stays thin: heavy behavior lives in focused modules so
+    skills, release checks, and direct CLI usage all exercise the same codepath.
+    """
+
     parser = build_parser()
     args = parser.parse_args(argv)
     config = load_config()
@@ -74,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "scan":
+            # Project scans are the primary public workflow. Scan modes decide
+            # which expensive checks run so daily automation stays lightweight.
             root = os.path.abspath(args.root)
             mode_options = apply_scan_mode(
                 args.mode,
@@ -106,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "intel":
+            # Threat-intel commands manage optional advisory corpus ingestion.
+            # They are separated from normal scans to avoid unexpected network
+            # or filesystem work during routine project review.
             if args.intel_command == "sources-init":
                 payload = ensure_default_threat_intel_sources(config)
                 payload["path"] = config.threat_intel_sources_path
@@ -152,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "validate":
             if args.validate_command == "plugin-release":
-                payload = plugin_release_checks(Path(args.source_dir))
+                payload = plugin_release_checks(Path(args.source_dir) if args.source_dir else None)
                 if args.json:
                     print_json(payload)
                 else:
@@ -162,6 +179,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 0 if payload["status"] == "pass" else 1
 
         if args.command == "inventory":
+            # Inventory commands expose the native scanner directly for debugging
+            # parser behavior without running advisory enrichment or triage.
             if args.inventory_command == "scan":
                 roots = args.root or config.development_roots
                 payload = scan_roots(

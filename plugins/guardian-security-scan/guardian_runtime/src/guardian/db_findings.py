@@ -1,3 +1,5 @@
+"""SQLite persistence methods for advisories and open/resolved package findings."""
+
 from __future__ import annotations
 
 import json

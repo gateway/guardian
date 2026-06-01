@@ -68,6 +68,16 @@ codex plugin add guardian-security-scan@guardian
 
 Start a new Codex thread after installing so the new skills are loaded.
 
+## Release Verification
+
+Before publishing a new release, run:
+
+```bash
+./scripts/release_check.sh
+```
+
+That gate validates the Codex plugin manifest, skill metadata, Python source compilation, Guardian's internal regression corpus, fixture scans, and a local Codex marketplace install smoke test.
+
 ## Intelligence Sources
 
 Guardian uses multiple sources because no single feed is complete:
@@ -81,6 +91,8 @@ Guardian uses multiple sources because no single feed is complete:
 - Bundled exact-match public campaign catalogs for selected malicious package incidents.
 
 Guardian reports what the configured sources currently know about the package versions it can see. It cannot prove a project is safe from unknown zero-days.
+
+For the security boundary and expectations, read [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md).
 
 ## Efficient By Default
 

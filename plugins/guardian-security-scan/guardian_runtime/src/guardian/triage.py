@@ -1,3 +1,5 @@
+"""High-level triage enrichment that combines advisory severity, exploit signals, project context, and remediation advice."""
+
 from __future__ import annotations
 
 from .config import GuardianConfig
@@ -18,9 +20,6 @@ from .triage_rules import (
 from .triage_signals import HYGIENE_NECESSITY_ORDER, keyword_signals
 
 
-"""High-level triage orchestration over focused context, rule, and queue modules."""
-
-
 def enrich_issue(
     issue: dict,
     config: GuardianConfig,
@@ -32,6 +31,8 @@ def enrich_issue(
     *,
     resolve_clean_targets: bool,
 ) -> dict:
+    """Attach project context, exploit signals, labels, and actions to one issue."""
+
     package_contexts = [
         _package_context(
             db,
@@ -72,6 +73,8 @@ def enrich_issue(
         malicious_package=bool(issue.get("malicious_package")),
         exploit_likelihood=exploit_likelihood,
     )
+    # Action text is intentionally context-aware. Vendored metadata and
+    # uncorroborated transitives should not read like immediate app upgrades.
     actions = []
     for package in package_contexts:
         environment = package.get("environment_label")
@@ -138,6 +141,8 @@ def enriched_issues(
     *,
     resolve_clean_targets: bool = True,
 ) -> list[dict]:
+    """Return triaged issues for a root, filtered to packages present in that root."""
+
     inspector = ProjectInspector()
     resolver = CandidateResolver(config)
     occurrence_cache: dict[tuple[str, str, str], list[dict]] = {}

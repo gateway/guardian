@@ -1,3 +1,5 @@
+"""Package-diet workflow for unused dependency and replace-with-native review."""
+
 from __future__ import annotations
 
 """Package-diet scan orchestration.

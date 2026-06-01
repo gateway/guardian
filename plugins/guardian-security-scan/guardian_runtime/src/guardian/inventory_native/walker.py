@@ -1,3 +1,5 @@
+"""Safe filesystem walker that discovers package metadata while avoiding expensive source-tree crawls."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -145,6 +147,13 @@ def candidate_files(
     excludes: Iterable[str] = (),
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
 ) -> Iterator[Path]:
+    """Yield package metadata files that are safe and useful for inventory.
+
+    The walker prunes bulky source trees aggressively. Installed dependency scans
+    should inspect metadata such as lockfiles, package.json, and dist-info files,
+    not recursively crawl every dependency source file.
+    """
+
     root_path = Path(root).resolve()
     exclude_names = set(DEFAULT_EXCLUDES)
     exclude_names.update(excludes)

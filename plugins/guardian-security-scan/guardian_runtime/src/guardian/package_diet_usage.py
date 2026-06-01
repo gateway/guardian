@@ -1,3 +1,5 @@
+"""Static usage search helpers for package-diet analysis."""
+
 from __future__ import annotations
 
 """Source-usage helpers for dependency cleanup analysis.

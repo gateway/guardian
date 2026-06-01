@@ -1,3 +1,5 @@
+"""Local exact-match catalog matcher for malicious or campaign-specific package intelligence."""
+
 from __future__ import annotations
 
 import json

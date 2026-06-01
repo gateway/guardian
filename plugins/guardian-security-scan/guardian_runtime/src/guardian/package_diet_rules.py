@@ -1,3 +1,5 @@
+"""Heuristics that classify package-diet candidates by removal safety and replacement risk."""
+
 from __future__ import annotations
 
 """Classification and scoring rules for Guardian package-diet reports.

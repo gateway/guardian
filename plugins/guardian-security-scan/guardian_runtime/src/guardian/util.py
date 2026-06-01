@@ -1,3 +1,5 @@
+"""Shared utility helpers for JSON, NDJSON, timestamps, package normalization, and slug formatting."""
+
 from __future__ import annotations
 
 import json

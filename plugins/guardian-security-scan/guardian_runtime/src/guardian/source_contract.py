@@ -1,3 +1,5 @@
+"""Source-status contract helpers that explain which intelligence feeds ran, skipped, or errored."""
+
 from __future__ import annotations
 
 

@@ -1,3 +1,5 @@
+"""Shared reporting formatters, grouping helpers, and operator text primitives."""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,5 @@
+"""Evidence classification helpers that translate package records into operator-facing confidence labels."""
+
 from __future__ import annotations
 
 import json

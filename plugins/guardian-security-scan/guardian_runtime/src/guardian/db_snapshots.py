@@ -1,3 +1,5 @@
+"""SQLite persistence methods for triage snapshots and snapshot package rows."""
+
 from __future__ import annotations
 
 import json

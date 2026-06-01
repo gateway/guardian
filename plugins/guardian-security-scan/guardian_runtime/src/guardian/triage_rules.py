@@ -1,3 +1,5 @@
+"""Risk-bucket, environment-label, confidence, and exploit-likelihood rules for triage."""
+
 from __future__ import annotations
 
 from .config import GuardianConfig

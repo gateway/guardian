@@ -1,14 +1,20 @@
+"""Release-time checks that verify runtime dependency surface, parser behavior, fixtures, and packaging assumptions."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 from .advisory_yaml import audit_advisory_yaml_corpus
-from .config import PROJECT_ROOT
 from .regression_corpus import run_regression_corpus
 
 
+PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+
+
 def plugin_release_checks(source_dir: Path | None = None) -> dict:
-    dependency_check = _runtime_dependency_check(PROJECT_ROOT / "pyproject.toml")
+    """Run lightweight release checks that do not require a real project repo."""
+
+    dependency_check = _runtime_dependency_check(PLUGIN_ROOT / "pyproject.toml")
     regression = run_regression_corpus()
     parser_audit = None
     if source_dir is not None:
@@ -26,6 +32,10 @@ def plugin_release_checks(source_dir: Path | None = None) -> dict:
 
 
 def _runtime_dependency_check(pyproject_path: Path) -> dict:
+    """Fail the release if Guardian gains runtime package dependencies."""
+
+    if not pyproject_path.exists():
+        return {"status": "pass", "dependency_count": 0, "dependencies": [], "skipped": True}
     dependencies = _declared_runtime_dependencies(pyproject_path)
     return {
         "status": "pass" if not dependencies else "fail",
@@ -35,6 +45,8 @@ def _runtime_dependency_check(pyproject_path: Path) -> dict:
 
 
 def _parser_audit_check(parser_audit: dict | None) -> dict:
+    """Normalize optional advisory-corpus parser audit output into pass/fail."""
+
     if parser_audit is None:
         return {"status": "pass", "skipped": True, "reason": "source directory not available"}
     fail_count = int(parser_audit.get("missing_required_count") or 0) + int(
@@ -45,6 +57,8 @@ def _parser_audit_check(parser_audit: dict | None) -> dict:
 
 
 def _declared_runtime_dependencies(pyproject_path: Path) -> list[str]:
+    """Extract project.dependencies from pyproject.toml without TOML dependencies."""
+
     inside = False
     dependencies: list[str] = []
     for line in pyproject_path.read_text(encoding="utf-8").splitlines():

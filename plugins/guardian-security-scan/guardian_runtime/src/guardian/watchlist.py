@@ -1,3 +1,5 @@
+"""Watchlist runner for repeatedly checking selected package/version sets."""
+
 from __future__ import annotations
 
 import json

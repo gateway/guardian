@@ -1,3 +1,5 @@
+"""GitHub Security Advisories client for exact package/version and advisory-id lookups."""
+
 from __future__ import annotations
 
 import json

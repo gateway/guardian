@@ -1,3 +1,5 @@
+"""SQLite schema for Guardian local state, scan snapshots, findings, and remediation data."""
+
 from __future__ import annotations
 
 """SQLite schema for Guardian's local state database."""

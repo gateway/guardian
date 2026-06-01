@@ -1,3 +1,5 @@
+"""Project-context enrichment for dependency role, environment, usage, fixed-version, and upgrade-risk evidence."""
+
 from __future__ import annotations
 
 import json

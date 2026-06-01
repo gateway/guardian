@@ -1,3 +1,5 @@
+"""Inventory service that runs native scanners, stores package records, and imports NDJSON inventory data."""
+
 from __future__ import annotations
 
 from pathlib import Path

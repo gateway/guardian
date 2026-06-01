@@ -1,3 +1,5 @@
+"""Manifest inspection helpers that classify dependency scope and code ownership inside a project."""
+
 from __future__ import annotations
 
 import json
@@ -26,6 +28,8 @@ def _parse_requirement_name(spec: str) -> str | None:
 
 @dataclass
 class ManifestRecord:
+    """Normalized dependency declarations from one project manifest."""
+
     ecosystem: str
     path: str
     root_dir: str
@@ -36,10 +40,14 @@ class ManifestRecord:
 
 
 class ProjectInspector:
+    """Cache and query package manifests for dependency-scope evidence."""
+
     def __init__(self) -> None:
         self._cache: dict[str, list[ManifestRecord]] = {}
 
     def manifests_for_root(self, root_path: str) -> list[ManifestRecord]:
+        """Discover supported manifests once per root and reuse them during triage."""
+
         if root_path in self._cache:
             return self._cache[root_path]
         root = Path(root_path)
@@ -61,6 +69,8 @@ class ProjectInspector:
         return manifests
 
     def _parse_package_json(self, path: Path) -> ManifestRecord | None:
+        """Read npm dependency scopes from package.json without package-manager calls."""
+
         try:
             payload = json.loads(path.read_text())
         except Exception:
@@ -82,6 +92,8 @@ class ProjectInspector:
         )
 
     def _parse_pyproject(self, path: Path) -> ManifestRecord | None:
+        """Read Python dependency scopes from pyproject.toml using stdlib tomllib."""
+
         try:
             payload = tomllib.loads(path.read_text())
         except Exception:
@@ -132,6 +144,12 @@ class ProjectInspector:
         normalized_name: str,
         occurrence_paths: list[str],
     ) -> dict:
+        """Classify a package as runtime, test, build, workspace, or undeclared.
+
+        Triage uses this to avoid treating a build/test-only package the same as
+        a runtime dependency when deciding whether a finding is actionable.
+        """
+
         manifests = [item for item in self.manifests_for_root(root_path) if item.ecosystem == ecosystem]
         matched: list[ManifestRecord] = []
         for occurrence in occurrence_paths:

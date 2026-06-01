@@ -1,3 +1,5 @@
+"""Compact scan payload shaping for skill runners and automation output."""
+
 from __future__ import annotations
 
 from .config import GuardianConfig

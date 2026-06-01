@@ -1,3 +1,5 @@
+"""Public reporting facade that re-exports focused reporting modules."""
+
 from __future__ import annotations
 
 # Public reporting facade. Keep imports here stable for CLI and skills while

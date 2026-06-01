@@ -1,3 +1,5 @@
+"""SQLite persistence methods for policy exceptions and remediation lifecycle records."""
+
 from __future__ import annotations
 
 import sqlite3

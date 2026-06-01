@@ -1,3 +1,5 @@
+"""FIRST EPSS client for CVE exploit-likelihood enrichment."""
+
 from __future__ import annotations
 
 import json
