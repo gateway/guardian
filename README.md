@@ -94,6 +94,28 @@ Guardian reports what the configured sources currently know about the package ve
 
 For the security boundary and expectations, read [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md).
 
+## Scan State And Freshness
+
+Guardian keeps local scan state in SQLite so repeat scans can be compared. By default, state is stored outside the plugin at:
+
+```text
+~/.guardian-security-scan/guardian.db
+```
+
+That database stores package inventory state, advisory rows, findings, triage snapshots, policy exceptions, and remediation lifecycle data. It is runtime state only; the database is not shipped in the plugin.
+
+Each project scan does fresh work:
+
+- Re-inventories the target repo from manifests, lockfiles, and optional installed metadata.
+- Queries OSV live for the current package versions.
+- Checks bundled and generated local exact-match catalogs.
+- In daily, standard, deep, and handoff modes, initializes and refreshes configured threat-intel sources such as the GitLab Advisory Database sparse checkout when available.
+- Enriches matching CVEs with live CISA KEV, FIRST EPSS, and NVD details when those aliases are present.
+- Queries GitHub Security Advisories when `--include-ghsa` is enabled or a scan mode enables it.
+- Writes a new triage snapshot and compares it with the previous snapshot for that repo.
+
+For daily automation, the important fields are the source status, generated timestamps, snapshot comparison, and operator report path. They show whether the run queried live sources, used local catalogs, found new issues, resolved previous issues, or saw no meaningful change.
+
 ## Efficient By Default
 
 Guardian is built to stay lightweight for local Codex workflows and scheduled scans:

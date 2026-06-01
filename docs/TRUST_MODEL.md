@@ -33,6 +33,45 @@ Guardian can use OSV, GitHub Security Advisories, CISA KEV, FIRST EPSS, NVD, Git
 
 Guardian should report source status so users can tell whether a feed was queried, skipped, cached, or unavailable.
 
+## Local SQLite State
+
+Guardian uses SQLite for local state. The default path is:
+
+```text
+~/.guardian-security-scan/guardian.db
+```
+
+The database stores inventory runs, current package state, advisory records, findings, triage snapshots, policy exceptions, and remediation lifecycle data. This state is created on the user's machine at runtime and is not included in the plugin repository.
+
+The database is what lets Guardian answer operational questions across runs:
+
+- Was this finding new today?
+- Did a package fix remove a previous finding?
+- Did the evidence change, or only the interpretation?
+- Is this unchanged noise that should not be re-explained every morning?
+
+## Freshness Model
+
+Guardian uses both live and local data.
+
+Live on normal scans:
+
+- OSV batch queries for the package versions in the current inventory.
+- CISA KEV, FIRST EPSS, and NVD enrichment when a matching CVE alias is present.
+- GitLab Advisory Database sparse checkout/fetch when threat-intel ingest is enabled by the selected scan mode.
+
+Live when requested:
+
+- GitHub Security Advisories exact package/version lookups when `--include-ghsa` is enabled or a selected scan mode enables GHSA.
+
+Local:
+
+- Bundled exact-match malicious-package catalogs shipped with the plugin.
+- Generated exact-match catalogs from threat-intel ingest.
+- Previous scan snapshots and local remediation state in SQLite.
+
+This means a daily automation does not only test against a static database. It re-inventories the repo, refreshes configured live sources where enabled, checks local catalogs, then compares the new result to the prior SQLite snapshot.
+
 ## GitHub Token Behavior
 
 A GitHub token is optional. Guardian checks `GITHUB_TOKEN`, then `GH_TOKEN`, then `gh auth token` if the GitHub CLI is available.
