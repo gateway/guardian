@@ -1,6 +1,6 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.0.0+codex.20260601142130",
+  "version": "1.0.0+codex.20260601142415",
   "description": "Guardian scans npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
   "author": {
     "name": "Dreaming Computers",

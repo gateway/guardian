@@ -53,6 +53,33 @@ Guardian uses multiple sources because no single feed is complete:
 
 Guardian reports what the configured sources currently know about the package versions it can see. It cannot prove a project is safe from unknown zero-days.
 
+## How Guardian Checks A Project
+
+Guardian is designed to do most of the heavy lifting in local code before Codex needs to reason about the result:
+
+1. It builds a package inventory from manifests, lockfiles, and optional installed metadata.
+2. It normalizes package names, ecosystems, versions, dependency scopes, and source files.
+3. It matches exact package versions against configured advisory, exploited-vulnerability, exploit-likelihood, and malicious-package sources.
+4. It corroborates whether a finding appears in the active app lockfile, installed package tree, runtime code usage, tooling-only areas, isolated environments, or vendored metadata.
+5. It assigns labels such as known vulnerable, known exploited, malicious package, high exploit likelihood, runtime-linked, transitive, isolated environment, or vendored metadata.
+6. It compares the scan to the previous snapshot so the report can distinguish new, resolved, changed, and unchanged findings.
+7. It emits compact operator JSON and optional Markdown handoffs so Codex can summarize the result without rereading the entire repo or every advisory.
+
+The important design choice is evidence first, explanation second. Guardian tries to avoid telling Codex "upgrade this" until the package version, advisory match, dependency context, and project evidence support that recommendation.
+
+## Efficiency And Dependency Footprint
+
+Guardian was built to be lightweight for local Codex workflows and scheduled scans:
+
+- The scanner runtime uses the Python standard library only. Guardian does not install its own third-party Python packages to run.
+- Normal scans are read-only and avoid executing arbitrary project code.
+- Reports are compact by default so Codex can read a small operator summary instead of consuming tokens on raw lockfiles or full advisory payloads.
+- Snapshot comparison prevents repeated scans from re-explaining the same unchanged findings as if they were new.
+- Deeper live-source checks, installed-tree corroboration, and package-diet usage scans are opt-in so daily scans can stay fast and low-noise.
+- The package-diet skill exists separately so dependency-bloat review does not inflate normal vulnerability-scan output.
+
+This does not mean Guardian has zero cost. Live advisory queries, deep installed-tree checks, and large-repo usage searches still take time. The default workflow is intentionally conservative so routine scans stay efficient, while deeper checks are available when the situation justifies them.
+
 ## Output
 
 A good Guardian scan should tell you:
