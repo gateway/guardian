@@ -10,15 +10,7 @@ Guardian is built for AI-assisted development, where packages can accumulate qui
 
 Guardian scans project evidence in read-only mode. It does not edit dependency files or execute arbitrary project code during normal scans.
 
-```mermaid
-flowchart TD
-    A["Project evidence<br/>manifests, lockfiles,<br/>requirements, pyproject"] --> B["Read-only inventory<br/>no dependency edits<br/>no project code execution"]
-    B --> C["Normalize<br/>ecosystem, package,<br/>version, scope"]
-    C --> D["Match intelligence<br/>OSV, GHSA, KEV,<br/>EPSS, NVD, GitLab,<br/>malicious catalogs"]
-    D --> E["Corroborate context<br/>runtime, transitive,<br/>tooling, isolated,<br/>vendored metadata"]
-    E --> F["Prioritize evidence<br/>known vulnerable,<br/>known exploited,<br/>malicious, high likelihood"]
-    F --> G["Report<br/>operator JSON,<br/>Markdown handoff,<br/>snapshot comparison"]
-```
+`Project evidence -> read-only inventory -> normalized packages -> security intelligence match -> project-context corroboration -> prioritized findings -> operator JSON / Markdown handoff / snapshot comparison`
 
 The design is evidence first, explanation second. Guardian avoids telling Codex to upgrade a package until the package version, advisory match, dependency context, and project evidence support that recommendation.
 
