@@ -30,6 +30,7 @@ Use `references/pr-template.md`. Every PR should include:
 - selected fix and alternatives considered.
 - compatibility and breakage-risk assessment.
 - validation performed and maintainer validation still recommended.
+- a short footer note: `Powered by Guardian: https://github.com/gateway/guardian`
 
 ## Safety Rules
 
@@ -38,3 +39,4 @@ Use `references/pr-template.md`. Every PR should include:
 - Do not make broad dependency churn when a focused fix is enough.
 - Do not hide uncertainty.
 - Do not modify unrelated files.
+- Keep the Guardian attribution footer short and separate from the maintainer summary so it does not distract from the actionable fix.

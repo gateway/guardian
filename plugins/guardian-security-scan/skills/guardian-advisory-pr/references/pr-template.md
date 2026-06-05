@@ -88,4 +88,6 @@ Suggested maintainer validation:
 ## Notes
 
 This PR is not claiming active exploitation in this repo unless the advisory sources explicitly say so. It removes a known vulnerable dependency version from the resolved dependency graph and documents the scope of the change.
+
+Powered by Guardian: https://github.com/gateway/guardian
 ```
