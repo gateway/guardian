@@ -1,14 +1,16 @@
 # Guardian Advisory PR Template
 
 ```md
-## Maintainer Summary
+## 10-second summary
 
-Change: `<one sentence>`  
-Why: `<advisory ID> affects <package>@<version>; fixed by <target>`  
-User-visible impact: `<none expected | describe expected behavior change>`  
-Surface area: `<internal/non-user-facing | UI | API | default behavior | data/model/schema>`  
-Risk: `<low|medium|high>` because `<short reason>`  
-Validation: `<audit/test/static check result summary>`
+`<This PR updates package@old to package@new for ADVISORY_ID / CVE, a severity vulnerability class advisory. In one or two sentences, explain what could happen in plain English and why this repository is affected. State whether this is active exploitation or preventive remediation.>`
+
+`<One short paragraph: explain what changed, expected user-visible impact, and the validation already run.>`
+
+## What Changed
+
+- `<dependency floor / lockfile / override / parent package changed>`
+- `<generated dependency sidecar updated, if applicable>`
 
 ## What Users Will See
 

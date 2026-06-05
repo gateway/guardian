@@ -21,7 +21,7 @@ Use this skill only after a Guardian finding is confirmed as actionable. Do not 
 
 Use `references/pr-template.md`. Every PR should include:
 
-- 10-second maintainer summary.
+- a plain-English 10-second summary at the very top that states the vulnerability class, what could happen, why this repo is affected, and what the PR changes.
 - advisory ID, CVE when available, severity, and links.
 - short vulnerability explanation and when it matters.
 - exact dependency path.
@@ -40,3 +40,4 @@ Use `references/pr-template.md`. Every PR should include:
 - Do not hide uncertainty.
 - Do not modify unrelated files.
 - Keep the Guardian attribution footer short and separate from the maintainer summary so it does not distract from the actionable fix.
+- Do not start the PR body with template labels like `Change:`, `Why:`, or `Risk:`. Put the human-readable issue summary first, then the structured evidence.
