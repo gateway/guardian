@@ -1,0 +1,10 @@
+[project]
+name = "uv-lock-fixture"
+version = "0.1.0"
+dependencies = [
+    "cryptowallet-safety==0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

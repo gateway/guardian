@@ -5,8 +5,117 @@ from __future__ import annotations
 import json
 from email.parser import Parser
 from pathlib import Path
+import re
 
 from .records import package_record
+
+
+def parse_uv_lock(path: Path, root: Path) -> list[dict]:
+    """Parse exact package versions from uv.lock without requiring TOML packages."""
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception:
+        return []
+    direct_names = _direct_dependency_names_from_pyproject(path.parent / "pyproject.toml")
+    records: list[dict] = []
+    current: dict[str, str] = {}
+
+    def flush() -> None:
+        name = current.get("name")
+        version = current.get("version")
+        if not name or not version:
+            return
+        normalized = _normalize_python_name(name)
+        direct = normalized in direct_names if direct_names else None
+        records.append(
+            package_record(
+                root=root,
+                ecosystem="pypi",
+                package_name=name,
+                version=version,
+                source_file=path,
+                source_type="uv-lockfile",
+                package_manager="uv",
+                confidence="high",
+                direct_dependency=direct,
+                install_scope="prod" if direct else None,
+                evidence_kind="lockfile",
+                raw_metadata={"direct_dependency_names_available": bool(direct_names)},
+            )
+        )
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[[package]]":
+            flush()
+            current = {}
+            continue
+        if not current and not stripped.startswith(("name =", "version =")):
+            continue
+        if stripped.startswith("name ="):
+            value = _quoted_value(stripped)
+            if value:
+                current["name"] = value
+            continue
+        if stripped.startswith("version ="):
+            value = _quoted_value(stripped)
+            if value:
+                current["version"] = value
+    flush()
+    return records
+
+
+def parse_pyproject_manifest(path: Path, root: Path) -> list[dict]:
+    """Parse exact project/package pins from pyproject.toml conservatively."""
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    records: list[dict] = []
+    project_name = _project_scalar(text, "name")
+    project_version = _project_scalar(text, "version")
+    if project_name and project_version:
+        records.append(
+            package_record(
+                root=root,
+                ecosystem="pypi",
+                package_name=project_name,
+                version=project_version,
+                source_file=path,
+                source_type="pyproject-manifest",
+                package_manager=_build_backend_name(text) or "python",
+                confidence="medium",
+                direct_dependency=True,
+                install_scope="prod",
+                evidence_kind="manifest",
+                raw_metadata={"package_self": True},
+            )
+        )
+
+    for requirement, scope in _project_dependency_requirements(text):
+        parsed = _exact_python_requirement(requirement)
+        if parsed is None:
+            continue
+        name, version = parsed
+        records.append(
+            package_record(
+                root=root,
+                ecosystem="pypi",
+                package_name=name,
+                version=version,
+                source_file=path,
+                source_type="pyproject-manifest",
+                package_manager=_build_backend_name(text) or "python",
+                confidence="medium",
+                direct_dependency=True,
+                install_scope=scope,
+                evidence_kind="manifest",
+                raw_metadata={"raw_specifier": requirement},
+            )
+        )
+    return records
 
 
 def parse_python_metadata(path: Path, root: Path) -> list[dict]:
@@ -82,3 +191,117 @@ def _is_vendored_python_metadata(path: Path) -> bool:
         rel = parts[index + 1 :]
         return "_vendor" in rel or "vendor" in rel or len(rel) > 2
     return False
+
+
+def _quoted_value(line: str) -> str | None:
+    match = re.search(r'=\s*"([^"]+)"', line)
+    return match.group(1) if match else None
+
+
+def _normalize_python_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _project_scalar(text: str, key: str) -> str | None:
+    in_project = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "[project]":
+            in_project = True
+            continue
+        if in_project and stripped.startswith("["):
+            return None
+        if in_project and stripped.startswith(f"{key} ="):
+            return _quoted_value(stripped)
+    return None
+
+
+def _build_backend_name(text: str) -> str | None:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("build-backend ="):
+            value = _quoted_value(stripped)
+            if value:
+                return value.split(".", 1)[0]
+    return None
+
+
+def _direct_dependency_names_from_pyproject(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return set()
+    names: set[str] = set()
+    for requirement, _scope in _project_dependency_requirements(text):
+        name = _requirement_name(requirement)
+        if name:
+            names.add(_normalize_python_name(name))
+    return names
+
+
+def _project_dependency_requirements(text: str) -> list[tuple[str, str]]:
+    requirements: list[tuple[str, str]] = []
+    current_scope = "prod"
+    collecting = False
+    in_project = False
+    in_optional = False
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "[project]":
+            in_project = True
+            in_optional = False
+            continue
+        if stripped == "[project.optional-dependencies]":
+            in_project = False
+            in_optional = True
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_project = False
+            in_optional = False
+            collecting = False
+            continue
+        if in_project and stripped.startswith("dependencies = ["):
+            current_scope = "prod"
+            collecting = True
+            requirements.extend((_req, current_scope) for _req in _requirements_from_line(stripped))
+            if stripped.endswith("]"):
+                collecting = False
+            continue
+        if in_optional and re.match(r"^[A-Za-z0-9_.-]+\s*=\s*\[", stripped):
+            option = stripped.split("=", 1)[0].strip()
+            current_scope = "dev" if option == "dev" else "optional"
+            collecting = True
+            requirements.extend((_req, current_scope) for _req in _requirements_from_line(stripped))
+            if stripped.endswith("]"):
+                collecting = False
+            continue
+        if collecting:
+            requirements.extend((_req, current_scope) for _req in _requirements_from_line(stripped))
+            if stripped.endswith("]"):
+                collecting = False
+    return requirements
+
+
+def _requirements_from_line(line: str) -> list[str]:
+    return re.findall(r'"([^"]+)"', line)
+
+
+def _requirement_name(requirement: str) -> str | None:
+    match = re.match(r"\s*([A-Za-z0-9_.-]+)", requirement)
+    return match.group(1) if match else None
+
+
+def _exact_python_requirement(requirement: str) -> tuple[str, str] | None:
+    name = _requirement_name(requirement)
+    if not name:
+        return None
+    match = re.search(r"(?<![<>=!~])==\s*([A-Za-z0-9_.!+*-]+)", requirement)
+    if not match:
+        return None
+    version = match.group(1).strip()
+    if "*" in version:
+        return None
+    return name, version

@@ -10,8 +10,8 @@ from typing import Iterable
 from guardian.config import GuardianConfig
 from guardian.util import read_ndjson, slugify, write_json
 
-from .npm import parse_node_package_json, parse_package_lock, parse_pnpm_lock, parse_yarn_lock
-from .pypi import parse_python_metadata
+from .npm import parse_node_package_json, parse_package_json_manifest, parse_package_lock, parse_pnpm_lock, parse_yarn_lock
+from .pypi import parse_pyproject_manifest, parse_python_metadata, parse_uv_lock
 from .walker import candidate_files
 
 
@@ -56,10 +56,17 @@ def scan_package_records(
                 records.extend(parse_pnpm_lock(path, root_path))
             elif path.name == "yarn.lock":
                 records.extend(parse_yarn_lock(path, root_path))
+            elif path.name == "package.json" and "node_modules" not in path.parts:
+                records.extend(parse_package_json_manifest(path, root_path))
             elif include_installed and path.name == "package.json" and "node_modules" in path.parts:
                 records.extend(parse_node_package_json(path, root_path))
-        if "pypi" in selected and include_installed and path.name in {"METADATA", "PKG-INFO"}:
-            records.extend(parse_python_metadata(path, root_path))
+        if "pypi" in selected:
+            if path.name == "uv.lock":
+                records.extend(parse_uv_lock(path, root_path))
+            elif path.name == "pyproject.toml":
+                records.extend(parse_pyproject_manifest(path, root_path))
+            elif include_installed and path.name in {"METADATA", "PKG-INFO"}:
+                records.extend(parse_python_metadata(path, root_path))
         for record in records[before:]:
             source_type = record.get("source_type") or "unknown"
             evidence_kind = record.get("evidence_kind") or "unknown"

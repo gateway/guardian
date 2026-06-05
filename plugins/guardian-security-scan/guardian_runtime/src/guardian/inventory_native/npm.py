@@ -183,6 +183,96 @@ def parse_node_package_json(path: Path, root: Path) -> list[dict]:
     ]
 
 
+def parse_package_json_manifest(path: Path, root: Path) -> list[dict]:
+    """Parse project package.json files without resolving semver ranges.
+
+    Manifest-only dependency ranges such as ^1.2.3 are not resolved here
+    because Guardian must avoid guessing an installed version. Exact package
+    self versions and exact dependency pins are useful for malicious-package
+    and advisory exact-match checks in repos that do not commit a lockfile.
+    """
+
+    try:
+        payload = _load_json(path)
+    except Exception:
+        return []
+    records: list[dict] = []
+    name = payload.get("name")
+    version = payload.get("version")
+    if isinstance(name, str) and isinstance(version, str) and name and _is_exact_npm_version(version):
+        records.append(
+            package_record(
+                root=root,
+                ecosystem="npm",
+                package_name=name,
+                version=version,
+                source_file=path,
+                source_type="npm-manifest",
+                package_manager=_manifest_package_manager(payload),
+                confidence="medium",
+                direct_dependency=True,
+                install_scope="prod",
+                evidence_kind="manifest",
+                raw_metadata={"package_self": True},
+            )
+        )
+
+    for field, scope in (
+        ("dependencies", "prod"),
+        ("optionalDependencies", "prod"),
+        ("devDependencies", "dev"),
+        ("peerDependencies", "prod"),
+    ):
+        deps = payload.get(field)
+        if not isinstance(deps, dict):
+            continue
+        for dep_name, dep_version in sorted(deps.items()):
+            if not isinstance(dep_name, str) or not isinstance(dep_version, str):
+                continue
+            exact = _exact_npm_dependency_version(dep_version)
+            if exact is None:
+                continue
+            records.append(
+                package_record(
+                    root=root,
+                    ecosystem="npm",
+                    package_name=dep_name,
+                    version=exact,
+                    source_file=path,
+                    source_type="npm-manifest",
+                    package_manager=_manifest_package_manager(payload),
+                    confidence="medium",
+                    direct_dependency=True,
+                    install_scope=scope,
+                    evidence_kind="manifest",
+                    raw_metadata={"dependency_field": field, "raw_specifier": dep_version},
+                )
+            )
+    return records
+
+
+def _manifest_package_manager(payload: dict) -> str:
+    package_manager = payload.get("packageManager")
+    if isinstance(package_manager, str) and package_manager:
+        return package_manager.split("@", 1)[0]
+    return "npm"
+
+
+def _exact_npm_dependency_version(value: str) -> str | None:
+    raw = value.strip()
+    if raw.startswith("npm:"):
+        raw = raw[4:]
+        if "@" in raw:
+            raw = raw.rsplit("@", 1)[1]
+    if _is_exact_npm_version(raw):
+        return raw
+    return None
+
+
+def _is_exact_npm_version(value: str) -> bool:
+    return re.match(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$", value.strip()) is not None
+
+
 _PNPM_PACKAGE_RE = re.compile(r"^  ([^\s].*):\s*$")
 
 

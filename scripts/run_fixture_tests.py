@@ -93,6 +93,20 @@ def assert_vendored_fixture(tmp: Path) -> None:
         raise AssertionError(f"vendored yarn fixture did not produce vendored local-catalog evidence: {packages[:5]}")
 
 
+def assert_uv_lock_fixture(tmp: Path) -> None:
+    """uv.lock packages should be inventoried and matched against PyPI catalogs."""
+
+    payload = run_guardian(tmp / "uv-lock-pypi", tmp / "state-uv-lock")
+    packages = top_packages(payload)
+    matched = [
+        item for item in packages
+        if item.get("package_name") == "cryptowallet-safety"
+        and item.get("highest_severity") == "critical"
+    ]
+    if not matched:
+        raise AssertionError(f"uv.lock fixture did not produce expected PyPI exact-match finding: {packages[:5]}")
+
+
 def assert_snapshot_resolution(tmp: Path) -> None:
     """A second scan of the same root after removing the bad package should mark it resolved."""
 
@@ -125,11 +139,12 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="guardian-fixtures-") as raw_tmp:
         tmp = Path(raw_tmp)
-        for fixture in ("clean-npm", "malicious-local-catalog", "vendored-yarn-metadata"):
+        for fixture in ("clean-npm", "malicious-local-catalog", "vendored-yarn-metadata", "uv-lock-pypi"):
             shutil.copytree(FIXTURES / fixture, tmp / fixture)
         assert_clean_fixture(tmp)
         assert_local_catalog_fixture(tmp)
         assert_vendored_fixture(tmp)
+        assert_uv_lock_fixture(tmp)
         assert_snapshot_resolution(tmp)
     print("fixture tests passed")
     return 0

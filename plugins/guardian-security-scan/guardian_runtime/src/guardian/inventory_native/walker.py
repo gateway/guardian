@@ -27,6 +27,12 @@ LOCKFILE_NAMES = {
     "npm-shrinkwrap.json",
     "pnpm-lock.yaml",
     "yarn.lock",
+    "uv.lock",
+}
+
+PROJECT_MANIFEST_NAMES = {
+    "package.json",
+    "pyproject.toml",
 }
 
 PYTHON_TREE_EXCLUDES = {
@@ -172,6 +178,9 @@ def candidate_files(
             if path.is_symlink() or not _safe_file(path, max_file_bytes):
                 continue
             if filename in LOCKFILE_NAMES:
+                yield path
+                continue
+            if filename in PROJECT_MANIFEST_NAMES and not _is_under(path, "node_modules"):
                 yield path
                 continue
             if include_installed and filename == "package.json" and _is_under(path, "node_modules"):
