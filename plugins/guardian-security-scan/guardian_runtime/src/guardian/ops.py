@@ -9,6 +9,8 @@ from pathlib import Path
 from .advisories import refresh_findings
 from .config import GuardianConfig
 from .db import Database
+from .dependency_files import fingerprint_dependency_files
+from .intel import severity_rank
 from .inventory import DEFAULT_ECOSYSTEMS, scan_roots
 from .reporting import (
     build_operator_view,
@@ -285,6 +287,136 @@ def _write_project_json_report(config: GuardianConfig, root: str, prefix: str, p
     return path
 
 
+def _risk_label_for_severity(severity: str | None) -> str:
+    rank = severity_rank(severity)
+    if rank >= severity_rank("high"):
+        return "Act Now"
+    if rank == severity_rank("medium"):
+        return "Fix This Week"
+    return "Watch"
+
+
+def _compact_daily_watch_triage(db: Database, root: str) -> dict:
+    """Build a finding-only triage payload without code-usage enrichment."""
+
+    rows = db.conn.execute(
+        """
+        WITH repo_packages AS (
+          SELECT DISTINCT
+            root_path, ecosystem, package_name, normalized_name, version,
+            source_type, root_kind, confidence, direct_dependency, install_scope
+          FROM package_state
+          WHERE present = 1 AND root_path = ?
+        )
+        SELECT
+          rp.ecosystem,
+          rp.package_name,
+          rp.normalized_name,
+          rp.version,
+          rp.source_type,
+          rp.root_kind,
+          rp.confidence,
+          rp.direct_dependency,
+          rp.install_scope,
+          f.advisory_source,
+          f.advisory_id,
+          f.severity
+        FROM repo_packages rp
+        JOIN findings f
+          ON f.ecosystem = rp.ecosystem
+         AND f.normalized_name = rp.normalized_name
+         AND f.version = rp.version
+        WHERE f.status = 'open'
+        ORDER BY rp.ecosystem, rp.normalized_name, rp.version, f.advisory_source, f.advisory_id
+        """,
+        (root,),
+    ).fetchall()
+
+    grouped: dict[tuple[str, str, str], dict] = {}
+    for row in rows:
+        key = (row["ecosystem"], row["normalized_name"], row["version"])
+        package = grouped.setdefault(
+            key,
+            {
+                "ecosystem": row["ecosystem"],
+                "package_name": row["package_name"],
+                "normalized_name": row["normalized_name"],
+                "version": row["version"],
+                "highest_severity": None,
+                "advisory_count": 0,
+                "issue_keys": [],
+                "classification_labels": ["Daily Watch"],
+                "notes": [
+                    "Compact daily-watch snapshot: run a full Guardian scan for code usage, root cause, and upgrade-risk details."
+                ],
+                "role_label": _compact_role_label(row),
+                "environment_label": _compact_environment_label(row),
+                "recommended_clean_version": None,
+                "first_fixed_version": None,
+            },
+        )
+        package["advisory_count"] += 1
+        package["issue_keys"].append(f"{row['advisory_source']}:{row['advisory_id']}")
+        if severity_rank(row["severity"]) > severity_rank(package["highest_severity"]):
+            package["highest_severity"] = row["severity"]
+
+    packages = list(grouped.values())
+    for package in packages:
+        package["issue_keys"] = sorted(set(package["issue_keys"]))
+        package["risk_label"] = _risk_label_for_severity(package["highest_severity"])
+    risk_order = {"Act Now": 0, "Fix This Week": 1, "Watch": 2}
+    packages.sort(
+        key=lambda item: (
+            risk_order.get(item["risk_label"], 9),
+            -severity_rank(item["highest_severity"]),
+            item["package_name"].lower(),
+            item["version"],
+        )
+    )
+    by_risk: dict[str, int] = {}
+    for package in packages:
+        by_risk[package["risk_label"]] = by_risk.get(package["risk_label"], 0) + 1
+    headline = (
+        f"{by_risk.get('Act Now', 0)} packages act now, "
+        f"{by_risk.get('Fix This Week', 0)} fix this week, "
+        f"{by_risk.get('Watch', 0)} watch"
+        if packages
+        else "No open package findings"
+    )
+    return {
+        "headline": headline,
+        "by_risk_label": by_risk,
+        "issue_by_risk_label": by_risk,
+        "top_actions": [
+            {
+                "package": f"{item['package_name']}@{item['version']}",
+                "risk_label": item["risk_label"],
+                "highest_severity": item["highest_severity"],
+                "issue_keys": item["issue_keys"][:3],
+            }
+            for item in packages[:10]
+        ],
+        "package_actions": packages,
+        "issues": [],
+        "snapshot_kind": "daily-watch-compact",
+    }
+
+
+def _compact_role_label(row) -> str:
+    if row["direct_dependency"]:
+        return "Runtime" if (row["install_scope"] or "").lower() not in {"dev", "test"} else "Tooling/Test"
+    return "Transitive Only"
+
+
+def _compact_environment_label(row) -> str:
+    source_type = row["source_type"] or ""
+    if "vendored" in source_type:
+        return "vendored-lockfile"
+    if row["root_kind"]:
+        return row["root_kind"]
+    return source_type or "unknown"
+
+
 def run_daily(
     config: GuardianConfig,
     db: Database,
@@ -375,6 +507,172 @@ def run_daily(
         "remediation_updates": remediation_updates,
     }
     path = Path(config.reports_dir) / f"daily-{utc_now().replace(':', '-')}.json"
+    write_json(path, payload)
+    payload["report_path"] = str(path)
+    return payload
+
+
+def run_daily_watch(
+    config: GuardianConfig,
+    db: Database,
+    *,
+    roots: list[str],
+    ecosystems: list[str],
+    include_installed: bool,
+    include_ghsa: bool,
+    ghsa_max_packages: int,
+    refresh_advisories: bool = False,
+    include_threat_intel: bool = False,
+    threat_intel_severity_floor: str | None = None,
+    live_enrichment: bool = False,
+    engine: str | None = None,
+) -> dict:
+    """Run a lightweight morning watch pass over known roots.
+
+    The watch pass fingerprints dependency manifests and lockfiles first. Repos
+    with unchanged dependency files reuse existing package_state rows, while
+    changed or previously unseen roots are inventoried before advisory refresh.
+    Advisory matching still runs for every watched root so newly published
+    vulnerabilities can surface even when the local code did not change.
+    """
+
+    normalized_roots = [str(Path(root).resolve()) for root in roots]
+    selected_ecosystems = ecosystems or list(DEFAULT_ECOSYSTEMS)
+    root_statuses = []
+    roots_to_inventory = []
+
+    for root in normalized_roots:
+        fingerprints = fingerprint_dependency_files(root, include_installed=include_installed)
+        file_state = db.record_dependency_file_state(root, fingerprints)
+        package_count = len(db.current_packages_for_root(root))
+        needs_inventory = file_state["has_changes"] or (file_state["current_count"] > 0 and package_count == 0)
+        if needs_inventory:
+            if file_state["has_changes"]:
+                reason = "dependency-files-changed"
+            else:
+                reason = "no-current-package-state"
+            roots_to_inventory.append(root)
+            action = "inventory"
+        else:
+            reason = "dependency-files-unchanged" if file_state["current_count"] else "no-dependency-files"
+            action = "skip-inventory"
+        root_statuses.append(
+            {
+                "root_path": root,
+                "action": action,
+                "reason": reason,
+                "package_count_before": package_count,
+                "file_state": file_state,
+            }
+        )
+
+    inventory_runs = []
+    if roots_to_inventory:
+        inventory_runs = scan_roots(
+            config=config,
+            db=db,
+            roots=roots_to_inventory,
+            ecosystems=selected_ecosystems,
+            include_installed=include_installed,
+            excludes=[],
+            engine=engine,
+        )
+
+    threat_intel = None
+    if include_threat_intel:
+        ensure_default_threat_intel_sources(config)
+        threat_intel = ingest_threat_intel(
+            config,
+            db,
+            root_paths=normalized_roots,
+            ecosystems=selected_ecosystems,
+            severity_floor=threat_intel_severity_floor,
+        )
+
+    if refresh_advisories:
+        refresh = refresh_findings(
+            config=config,
+            db=db,
+            include_ghsa=include_ghsa,
+            ghsa_max_packages=ghsa_max_packages,
+            root_paths=normalized_roots,
+            enrich_live=live_enrichment,
+        )
+    else:
+        package_rows = [
+            dict(row)
+            for root in normalized_roots
+            for row in db.current_packages_for_root(root)
+            if row["ecosystem"] in {"npm", "pypi", "go", "rubygems", "packagist"}
+        ]
+        unique_versions = {
+            (row["ecosystem"], row["normalized_name"], row["version"])
+            for row in package_rows
+        }
+        refresh = {
+            "status": "skipped",
+            "skipped_reason": "daily-watch default uses cached findings; pass --refresh-advisories for live OSV/local-catalog refresh",
+            "packages_checked": 0,
+            "package_rows_considered": len(package_rows),
+            "unique_versions_available": len(unique_versions),
+            "findings_refreshed": 0,
+            "ghsa_included": False,
+            "ghsa_target_count": 0,
+            "ghsa_error": None,
+            "ghsa_skipped_reason": None,
+            "live_enrichment": False,
+        }
+    report = summary(db)
+
+    run_ids_by_root = {
+        item["root"]: [item["run_id"]]
+        for item in inventory_runs
+        if item.get("run_id") is not None
+    }
+    snapshots = []
+    comparisons = []
+    remediation_updates = []
+    for root in normalized_roots:
+        root_triage = _compact_daily_watch_triage(db, root)
+        snapshot = create_triage_snapshot(
+            config,
+            db,
+            root_filter=root,
+            triage=root_triage,
+            inventory_run_ids=run_ids_by_root.get(root, []),
+        )
+        snapshots.append(snapshot)
+        comparison = compare_triage_snapshots(
+            db,
+            root_filter=root,
+            current_snapshot_id=snapshot["snapshot_id"],
+        )
+        comparisons.append(comparison)
+        remediation_updates.append(
+            sync_remediation_lifecycle(
+                db,
+                root_filter=root,
+                current_snapshot_id=snapshot["snapshot_id"],
+            )
+        )
+
+    payload = {
+        "ran_at": utc_now(),
+        "mode": "daily-watch",
+        "roots": root_statuses,
+        "roots_inventory_count": len(roots_to_inventory),
+        "roots_skipped_count": len(normalized_roots) - len(roots_to_inventory),
+        "inventory_runs": inventory_runs,
+        "threat_intel": threat_intel,
+        "refresh": refresh,
+        "refresh_advisories": refresh_advisories,
+        "live_enrichment": live_enrichment,
+        "summary": report,
+        "snapshots": snapshots,
+        "comparisons": comparisons,
+        "remediation_updates": remediation_updates,
+    }
+    path = Path(config.reports_dir) / f"daily-watch-{utc_now().replace(':', '-')}.json"
     write_json(path, payload)
     payload["report_path"] = str(path)
     return payload

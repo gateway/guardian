@@ -14,7 +14,7 @@ from .cli_parser import build_parser
 from .db import Database
 from .gates import check_package, gate_install
 from .inventory import DEFAULT_ECOSYSTEMS, import_ndjson, scan_roots
-from .ops import run_daily, run_project_scan
+from .ops import run_daily, run_daily_watch, run_project_scan
 from .package_diet import package_diet_scan
 from .reporting import (
     build_operator_view,
@@ -117,6 +117,45 @@ def main(argv: list[str] | None = None) -> int:
                 print_json(compact_project_scan_payload(payload) if mode_options["compact"] else payload)
             else:
                 print_project_scan_summary(payload)
+            return 0
+
+        if args.command == "daily-watch":
+            roots = args.root or config.development_roots
+            payload = run_daily_watch(
+                config,
+                db,
+                roots=roots,
+                ecosystems=args.ecosystem or DEFAULT_ECOSYSTEMS,
+                include_installed=args.include_installed,
+                include_ghsa=args.include_ghsa,
+                ghsa_max_packages=args.ghsa_max_packages,
+                refresh_advisories=args.refresh_advisories,
+                include_threat_intel=args.include_threat_intel,
+                threat_intel_severity_floor=args.threat_intel_severity_floor,
+                live_enrichment=args.live_enrichment,
+                engine=args.engine,
+            )
+            if args.json:
+                print_json(payload)
+            else:
+                print(f"daily-watch complete: {payload['report_path']}")
+                print(
+                    f"roots inventoried: {payload['roots_inventory_count']} | "
+                    f"skipped: {payload['roots_skipped_count']}"
+                )
+                print(f"packages checked: {payload['refresh']['packages_checked']}")
+                print(f"refresh advisories: {payload['refresh_advisories']}")
+                print(f"live enrichment: {payload['live_enrichment']}")
+                for root in payload["roots"]:
+                    file_state = root["file_state"]
+                    print(
+                        f"{root['action']} {root['root_path']} "
+                        f"({root['reason']}; files={file_state['current_count']}, "
+                        f"changed={len(file_state['changed'])}, "
+                        f"added={len(file_state['added'])}, removed={len(file_state['removed'])})"
+                    )
+                for comparison in payload.get("comparisons", []):
+                    print(f"compare {comparison['root_path']}: {comparison.get('headline') or comparison.get('message')}")
             return 0
 
         if args.command == "intel":

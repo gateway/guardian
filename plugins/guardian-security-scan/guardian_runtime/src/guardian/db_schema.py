@@ -67,6 +67,24 @@ CREATE TABLE IF NOT EXISTS package_state (
 
 CREATE INDEX IF NOT EXISTS idx_package_state_lookup ON package_state(present, ecosystem, normalized_name, version);
 
+CREATE TABLE IF NOT EXISTS dependency_file_state (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  root_path TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_kind TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  mtime_ns INTEGER NOT NULL,
+  sha256 TEXT NOT NULL,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  last_changed_at TEXT NOT NULL,
+  present INTEGER NOT NULL DEFAULT 1,
+  UNIQUE(root_path, file_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dependency_file_state_root_present
+ON dependency_file_state(root_path, present);
+
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,

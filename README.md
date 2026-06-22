@@ -27,9 +27,10 @@ Guardian does not try to create panic or force dependency churn. It gives you en
 
 ## Included Skills
 
-Guardian ships with three Codex skills:
+Guardian ships with four Codex skills:
 
 - `guardian-project-scan`: Use this for normal project security scans, repeat scans, fix verification, and operator handoffs.
+- `guardian-daily-watch`: Use this for lightweight morning automation across known local repos. It detects dependency-file changes, skips unchanged inventory, and compares cached findings with low token/tool overhead.
 - `guardian-package-diet`: Use this for dependency cleanup, unused packages, package bloat, and "could we replace this with simple local code?" This is not a vulnerability scan.
 - `guardian-advisory-pr`: Use this after a finding is confirmed as actionable and you want a maintainer-friendly security PR with advisory links, dependency-path proof, code-usage review, fix rationale, and validation notes.
 
@@ -37,6 +38,10 @@ Example prompts:
 
 ```text
 Use Guardian to scan this project and summarize the findings.
+```
+
+```text
+Use Guardian daily watch to check my known local repos and summarize what changed.
 ```
 
 ```text
@@ -102,7 +107,7 @@ Guardian keeps local scan state in SQLite so repeat scans can be compared. By de
 ~/.guardian-security-scan/guardian.db
 ```
 
-That database stores package inventory state, advisory rows, findings, triage snapshots, policy exceptions, and remediation lifecycle data. It is runtime state only; the database is not shipped in the plugin.
+That database stores package inventory state, dependency-file fingerprints, advisory rows, findings, triage snapshots, policy exceptions, and remediation lifecycle data. It is runtime state only; the database is not shipped in the plugin.
 
 Each project scan does fresh work:
 
@@ -116,12 +121,16 @@ Each project scan does fresh work:
 
 For daily automation, the important fields are the source status, generated timestamps, snapshot comparison, and operator report path. They show whether the run queried live sources, used local catalogs, found new issues, resolved previous issues, or saw no meaningful change.
 
+For lightweight morning checks, use `daily-watch`. It hashes dependency manifests and lockfiles first, skips inventory for repos whose dependency files did not change, and writes fresh snapshots from cached findings so new, resolved, and unchanged evidence can be tracked cheaply. Add `--refresh-advisories` when you want the run to query live advisory sources for the known package inventory; add `--live-enrichment` only when you also want slower KEV, EPSS, and NVD enrichment.
+
 ## Efficient By Default
 
 Guardian is built to stay lightweight for local Codex workflows and scheduled scans:
 
 - The scanner runtime uses the Python standard library only. Guardian does not install third-party Python packages to run.
 - Normal reports are compact so Codex can read an operator summary instead of spending tokens on raw lockfiles or full advisory payloads.
+- `daily-watch` avoids re-inventorying unchanged repos by comparing dependency-file fingerprints before scan work starts.
+- Live advisory refresh for large multi-repo watches is explicit with `--refresh-advisories` so scheduled automation stays predictable.
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings as if they were new.
 - Deeper live-source checks, installed-tree corroboration, and package-diet usage scans are opt-in.
 - Package-diet review is separate so dependency-bloat analysis does not inflate normal vulnerability-scan output.
@@ -176,6 +185,18 @@ Run a normal scan:
 
 ```bash
 ./plugins/guardian-security-scan/scripts/guardian scan /path/to/repo --mode daily --output compact --json
+```
+
+Run a lightweight morning watch over one or more known roots:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian daily-watch --root /path/to/repo --json
+```
+
+Run the same watch with live advisory refresh:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian daily-watch --root /path/to/repo --refresh-advisories --json
 ```
 
 Run a deeper scan with installed-tree and GHSA corroboration:

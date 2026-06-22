@@ -28,6 +28,7 @@ def refresh_findings(
     include_ghsa: bool = False,
     ghsa_max_packages: int = 50,
     root_paths: list[str] | None = None,
+    enrich_live: bool = True,
 ) -> dict:
     """Refresh open findings for the current package inventory.
 
@@ -36,12 +37,13 @@ def refresh_findings(
     checked so malicious-package campaigns can be caught without network access.
     """
 
-    packages = [
+    package_rows = [
         dict(row)
         for row in db.current_packages()
         if row["ecosystem"] in {"npm", "pypi", "go", "rubygems", "packagist"}
         and (not root_paths or row["root_path"] in root_paths)
     ]
+    packages = _unique_package_versions(package_rows)
     osv = OSVClient(config)
     epss = EPSSClient(config)
     ghsa = GitHubAdvisoriesClient(config)
@@ -95,7 +97,7 @@ def refresh_findings(
             summary = vuln.get("summary")
             ghsa_enrichment = None
             nvd_enrichment = None
-            if osv_severity is None:
+            if enrich_live and osv_severity is None:
                 ghsa_candidates = [
                     item
                     for item in merge_aliases([advisory_id], osv_aliases)
@@ -110,7 +112,7 @@ def refresh_findings(
                         ghsa_enrichment = None
                     if ghsa_enrichment is not None:
                         break
-            if osv_severity is None and extract_ghsa_severity(ghsa_enrichment or {}) is None:
+            if enrich_live and osv_severity is None and extract_ghsa_severity(ghsa_enrichment or {}) is None:
                 cve_candidates = [
                     item
                     for item in merge_aliases(osv_aliases, extract_ghsa_aliases(ghsa_enrichment or {}))
@@ -161,7 +163,7 @@ def refresh_findings(
                 withdrawn_at=vuln.get("withdrawn"),
                 raw_json=merged_raw,
             )
-            for cve_id in cve_aliases:
+            for cve_id in (cve_aliases if enrich_live else []):
                 kev_entry = kev.query_by_cve_id(cve_id)
                 if kev_entry is not None:
                     db.upsert_advisory(
@@ -304,11 +306,13 @@ def refresh_findings(
 
     return {
         "packages_checked": len(packages),
+        "package_rows_considered": len(package_rows),
         "findings_refreshed": total_findings,
         "ghsa_included": bool(ghsa_target_packages),
         "ghsa_target_count": len(ghsa_target_packages),
         "ghsa_error": ghsa_error,
         "ghsa_skipped_reason": ghsa_skipped_reason,
+        "live_enrichment": enrich_live,
     }
 
 

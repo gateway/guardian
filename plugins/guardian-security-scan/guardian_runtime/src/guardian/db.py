@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from .db_dependency_files import DependencyFileStoreMixin
 from .db_findings import FindingStoreMixin
 from .db_inventory import InventoryStoreMixin
 from .db_policy import PolicyStoreMixin
@@ -12,7 +13,13 @@ from .db_schema import SCHEMA
 from .db_snapshots import SnapshotStoreMixin
 
 
-class Database(InventoryStoreMixin, FindingStoreMixin, SnapshotStoreMixin, PolicyStoreMixin):
+class Database(
+    DependencyFileStoreMixin,
+    InventoryStoreMixin,
+    FindingStoreMixin,
+    SnapshotStoreMixin,
+    PolicyStoreMixin,
+):
     """Small SQLite coordinator; domain-specific methods live in store mixins."""
 
     def __init__(self, path: str):

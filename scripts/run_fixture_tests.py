@@ -51,6 +51,27 @@ def run_guardian(
     return json.loads(completed.stdout)
 
 
+def run_guardian_command(state_dir: Path, args: list[str]) -> dict:
+    """Run an arbitrary Guardian command with isolated state and parse JSON."""
+
+    env = os.environ.copy()
+    env["GUARDIAN_STATE_DIR"] = str(state_dir)
+    env["GUARDIAN_SEED_CATALOG_DIR"] = str(PLUGIN_ROOT / "data" / "local_catalogs")
+    completed = subprocess.run(
+        [str(GUARDIAN), *args, "--json"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            "guardian command failed\n"
+            f"args: {args}\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return json.loads(completed.stdout)
+
+
 def top_packages(payload: dict) -> list[dict]:
     """Return the compact operator package list regardless of payload shape."""
 
@@ -134,6 +155,37 @@ def assert_snapshot_resolution(tmp: Path) -> None:
         raise AssertionError(f"snapshot resolution did not mark finding resolved: {comparison}")
 
 
+def assert_daily_watch_fingerprints(tmp: Path) -> None:
+    """daily-watch should inventory changed roots and skip unchanged ones."""
+
+    root = tmp / "daily-watch-clean"
+    shutil.copytree(tmp / "clean-npm", root)
+    state = tmp / "state-daily-watch"
+
+    first = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    if first["roots_inventory_count"] != 1 or first["roots_skipped_count"] != 0:
+        raise AssertionError(f"first daily-watch should inventory baseline root: {first['roots']}")
+    first_root = first["roots"][0]
+    if first_root["reason"] != "dependency-files-changed":
+        raise AssertionError(f"first daily-watch reason should be dependency-files-changed: {first_root}")
+
+    second = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    if second["roots_inventory_count"] != 0 or second["roots_skipped_count"] != 1:
+        raise AssertionError(f"second daily-watch should skip unchanged root: {second['roots']}")
+    second_root = second["roots"][0]
+    if second_root["reason"] != "dependency-files-unchanged":
+        raise AssertionError(f"second daily-watch reason should be dependency-files-unchanged: {second_root}")
+
+    package_json = root / "package.json"
+    package_json.write_text(package_json.read_text() + "\n")
+    third = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    if third["roots_inventory_count"] != 1 or third["roots_skipped_count"] != 0:
+        raise AssertionError(f"third daily-watch should inventory changed root: {third['roots']}")
+    third_state = third["roots"][0]["file_state"]
+    if "package.json" not in third_state["changed"]:
+        raise AssertionError(f"third daily-watch should report package.json changed: {third_state}")
+
+
 def main() -> int:
     """Copy fixtures to temp space and run the deterministic release assertions."""
 
@@ -146,6 +198,7 @@ def main() -> int:
         assert_vendored_fixture(tmp)
         assert_uv_lock_fixture(tmp)
         assert_snapshot_resolution(tmp)
+        assert_daily_watch_fingerprints(tmp)
     print("fixture tests passed")
     return 0
 
