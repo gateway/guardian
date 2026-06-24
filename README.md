@@ -27,10 +27,11 @@ Guardian does not try to create panic or force dependency churn. It gives you en
 
 ## Included Skills
 
-Guardian ships with four Codex skills:
+Guardian ships with five Codex skills:
 
 - `guardian-project-scan`: Use this for normal project security scans, repeat scans, fix verification, and operator handoffs.
 - `guardian-daily-watch`: Use this for lightweight morning automation across known local repos. It detects dependency-file changes, skips unchanged inventory, and compares cached findings with low token/tool overhead.
+- `guardian-repo-scout`: Use this for budgeted, temporary scans of public GitHub repos you do not own. It shallow-clones repos, uses isolated temporary Guardian state, surfaces high-signal findings, and deletes clones/state by default.
 - `guardian-package-diet`: Use this for dependency cleanup, unused packages, package bloat, and "could we replace this with simple local code?" This is not a vulnerability scan.
 - `guardian-advisory-pr`: Use this after a finding is confirmed as actionable and you want a maintainer-friendly security PR with advisory links, dependency-path proof, code-usage review, fix rationale, and validation notes.
 
@@ -42,6 +43,10 @@ Use Guardian to scan this project and summarize the findings.
 
 ```text
 Use Guardian daily watch to check my known local repos and summarize what changed.
+```
+
+```text
+Use Guardian repo scout to scan these public GitHub repos with temporary state and show only high-signal findings.
 ```
 
 ```text
@@ -123,6 +128,8 @@ For daily automation, the important fields are the source status, generated time
 
 For lightweight morning checks, use `daily-watch`. It hashes dependency manifests and lockfiles first, skips inventory for repos whose dependency files did not change, and writes fresh snapshots from cached findings so new, resolved, and unchanged evidence can be tracked cheaply. Add `--refresh-advisories` when you want the run to query live advisory sources for the known package inventory; add `--live-enrichment` only when you also want slower KEV, EPSS, and NVD enrichment.
 
+For public upstream scouting, use `repo-scout`. It creates temporary clones and a temporary Guardian database, runs bounded scans, reports high-signal findings, and removes the temporary workspace by default. This is designed for community review and PR discovery without ingesting third-party repos into your normal local scan history.
+
 ## Efficient By Default
 
 Guardian is built to stay lightweight for local Codex workflows and scheduled scans:
@@ -203,6 +210,19 @@ Run a deeper scan with installed-tree and GHSA corroboration:
 
 ```bash
 ./plugins/guardian-security-scan/scripts/guardian scan /path/to/repo --mode deep --include-installed --include-ghsa --json
+```
+
+Scout public GitHub repos with disposable clones and state:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian repo-scout \
+  --repo owner/name \
+  --scan-mode standard \
+  --include-ghsa \
+  --ghsa-max-packages 40 \
+  --per-repo-seconds 120 \
+  --total-seconds 900 \
+  --json
 ```
 
 Review package bloat:

@@ -35,6 +35,7 @@
     "defaultPrompt": [
       "Scan this project with Guardian.",
       "Check this repo for package risk.",
+      "Scout these public GitHub repos with temporary Guardian state.",
       "Review dependency bloat safely."
     ],
     "brandColor": "#0F766E"

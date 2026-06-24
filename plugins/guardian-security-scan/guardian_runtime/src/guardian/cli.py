@@ -29,6 +29,7 @@ from .reporting import (
 )
 from .remediation import remediation_status, sync_remediation_lifecycle
 from .release_checks import plugin_release_checks
+from .repo_scout import run_repo_scout
 from .scan_modes import apply_scan_mode
 from .scan_summary import compact_project_scan_payload
 from .threat_intel import audit_advisory_yaml_corpus, ensure_default_threat_intel_sources, ingest_threat_intel
@@ -156,6 +157,50 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 for comparison in payload.get("comparisons", []):
                     print(f"compare {comparison['root_path']}: {comparison.get('headline') or comparison.get('message')}")
+            return 0
+
+        if args.command == "repo-scout":
+            repos = list(args.repo or [])
+            if args.repo_file:
+                repos.extend(
+                    line.strip()
+                    for line in Path(args.repo_file).read_text().splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                )
+            if not repos:
+                parser.error("repo-scout requires --repo or --repo-file")
+            payload = run_repo_scout(
+                repos=repos,
+                scan_mode=args.scan_mode,
+                include_ghsa=args.include_ghsa,
+                ghsa_max_packages=args.ghsa_max_packages,
+                include_installed=args.include_installed,
+                include_threat_intel=args.include_threat_intel,
+                threat_intel_severity_floor=args.threat_intel_severity_floor,
+                per_repo_seconds=args.per_repo_seconds,
+                total_seconds=args.total_seconds,
+                clone_timeout_seconds=args.clone_timeout_seconds,
+                high_signal_limit=args.high_signal_limit,
+                max_repos=args.max_repos,
+                keep_workdir=args.keep_workdir,
+                engine=args.engine,
+            )
+            if args.json:
+                print_json(payload)
+            else:
+                print(
+                    f"repo-scout complete: scanned={payload['repo_count_scanned']} "
+                    f"high_signal={payload['total_high_signal_count']} "
+                    f"elapsed={payload['elapsed_seconds']}s"
+                )
+                print(f"state: {payload['state_policy']} | clones: {payload['workdir_policy']}")
+                for result in payload["results"]:
+                    print(f"{result['repo']}: {result['status']} | {result.get('scout_headline') or result.get('priority_headline') or 'no scan headline'}")
+                    for finding in result.get("high_signal_top_packages", [])[:3]:
+                        name = finding.get("package") or finding.get("name") or finding.get("package_name") or "unknown"
+                        severity = finding.get("severity") or finding.get("max_severity") or "unknown"
+                        action = finding.get("action") or finding.get("priority") or finding.get("action_bucket") or "review"
+                        print(f"  - {name}: {severity} | {action}")
             return 0
 
         if args.command == "intel":
