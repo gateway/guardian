@@ -130,6 +130,8 @@ For lightweight morning checks, use `daily-watch`. It hashes dependency manifest
 
 For public upstream scouting, use `repo-scout`. It creates temporary clones and a temporary Guardian database, runs bounded scans, reports high-signal findings, and removes the temporary workspace by default. This is designed for community review and PR discovery without ingesting third-party repos into your normal local scan history.
 
+For the recommended public-repo scouting workflow, see [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md).
+
 ## Efficient By Default
 
 Guardian is built to stay lightweight for local Codex workflows and scheduled scans:
