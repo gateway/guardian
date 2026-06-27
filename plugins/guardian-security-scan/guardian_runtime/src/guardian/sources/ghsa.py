@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -17,6 +19,20 @@ class GitHubAdvisoriesClient:
         self.config = config
         self.token = github_token()
         self._ghsa_id_cache: dict[str, dict | None] = {}
+        self._request_lock = threading.Lock()
+        self._last_request_at = 0.0
+
+    def _pace_request(self) -> None:
+        """Apply one-client request spacing so large scans do not burst GHSA."""
+
+        interval = max(0.0, float(self.config.api_request_min_interval_seconds))
+        if interval <= 0:
+            return
+        with self._request_lock:
+            elapsed = time.monotonic() - self._last_request_at
+            if elapsed < interval:
+                time.sleep(interval - elapsed)
+            self._last_request_at = time.monotonic()
 
     def query_exact(self, ecosystem: str, package_name: str, version: str) -> list[dict]:
         advisories: list[dict] = []
@@ -38,6 +54,7 @@ class GitHubAdvisoriesClient:
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
             request = Request(url, headers=headers, method="GET")
+            self._pace_request()
             with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
                 data = json.loads(response.read().decode("utf-8"))
             advisories.extend(data)
@@ -59,6 +76,7 @@ class GitHubAdvisoriesClient:
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         request = Request(url, headers=headers, method="GET")
+        self._pace_request()
         with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
             data = json.loads(response.read().decode("utf-8"))
         payload = data[0] if data else None

@@ -140,11 +140,13 @@ Guardian is built to stay lightweight for local Codex workflows and scheduled sc
 - Normal reports are compact so Codex can read an operator summary instead of spending tokens on raw lockfiles or full advisory payloads.
 - `daily-watch` avoids re-inventorying unchanged repos by comparing dependency-file fingerprints before scan work starts.
 - Live advisory refresh for large multi-repo watches is explicit with `--refresh-advisories` so scheduled automation stays predictable.
+- Repo Scout preflights public repos and automatically uses a longer large-repo budget when dependency-file or package counts are high.
+- Live GitHub advisory checks are capped and paced so large scans do not burst advisory APIs or waste retries after a timeout.
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings as if they were new.
 - Deeper live-source checks, installed-tree corroboration, and package-diet usage scans are opt-in.
 - Package-diet review is separate so dependency-bloat analysis does not inflate normal vulnerability-scan output.
 
-Live advisory queries, deep installed-tree checks, and large-repo usage searches still take time. The default workflow is intentionally conservative; deeper checks are available when the situation justifies them.
+Live advisory queries, deep installed-tree checks, and large-repo usage searches still take time. The default workflow is intentionally conservative; deeper checks are available when the situation justifies them, and large public repo scans should prefer one longer paced run over repeated short retries.
 
 ## Output
 
@@ -222,8 +224,9 @@ Scout public GitHub repos with disposable clones and state:
   --scan-mode standard \
   --include-ghsa \
   --ghsa-max-packages 40 \
-  --per-repo-seconds 120 \
-  --total-seconds 900 \
+  --per-repo-seconds 300 \
+  --large-repo-seconds 900 \
+  --total-seconds 1800 \
   --json
 ```
 

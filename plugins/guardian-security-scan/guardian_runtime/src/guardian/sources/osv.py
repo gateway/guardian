@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Iterable, List
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -20,7 +21,9 @@ class OSVClient:
 
     def query_batch(self, packages: list[dict]) -> list[dict]:
         results: list[dict] = []
-        for batch in chunked(packages, 1000):
+        for index, batch in enumerate(chunked(packages, 1000)):
+            if index and self.config.osv_batch_delay_seconds > 0:
+                time.sleep(self.config.osv_batch_delay_seconds)
             queries = [
                 {
                     "package": {

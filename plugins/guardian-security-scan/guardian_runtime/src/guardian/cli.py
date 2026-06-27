@@ -178,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
                 include_threat_intel=args.include_threat_intel,
                 threat_intel_severity_floor=args.threat_intel_severity_floor,
                 per_repo_seconds=args.per_repo_seconds,
+                large_repo_seconds=args.large_repo_seconds,
                 total_seconds=args.total_seconds,
                 clone_timeout_seconds=args.clone_timeout_seconds,
                 high_signal_limit=args.high_signal_limit,

@@ -112,6 +112,36 @@ def _db_assessment_for_package(
     }
 
 
+def _occurrence_scope_summary(occurrences: list[dict]) -> dict:
+    """Summarize scope for the exact package version currently being triaged.
+
+    Manifest and code-usage checks operate at package-name level, but findings
+    are version-specific. A repo can legitimately use `uuid@11` at runtime while
+    still carrying a dev-only nested `uuid@8`. This helper keeps the exact
+    vulnerable version's lockfile/install scope from being overwritten by
+    same-name runtime usage from a different resolved version.
+    """
+
+    scopes = {str(item.get("install_scope") or "").lower() for item in occurrences}
+    scopes.discard("")
+    return {
+        "scopes": sorted(scopes),
+        "dev_only": bool(scopes) and scopes.issubset({"dev", "development", "test"}),
+    }
+
+
+def _version_specific_manifest_scope(manifest_scope: str, direct_dependency: bool, scope_summary: dict) -> str:
+    if scope_summary["dev_only"] and not direct_dependency:
+        return "test"
+    return manifest_scope
+
+
+def _version_specific_usage_counts(usage_counts: dict[str, int], direct_dependency: bool, scope_summary: dict) -> dict[str, int]:
+    if scope_summary["dev_only"] and not direct_dependency:
+        return {"runtime": 0, "build": 0, "test": usage_counts.get("test", 0)}
+    return usage_counts
+
+
 def _package_context(
     db: Database,
     inspector: ProjectInspector,
@@ -165,6 +195,9 @@ def _package_context(
         if scope in manifest_scopes:
             manifest_scope = scope
             break
+    scope_summary = _occurrence_scope_summary(occurrences)
+    manifest_scope = _version_specific_manifest_scope(manifest_scope, direct_dependency, scope_summary)
+    usage_counts = _version_specific_usage_counts(usage_counts, direct_dependency, scope_summary)
     role = _package_role(package_name, manifest_scope, usage_counts, direct_dependency)
     environment_label = _environment_label(occurrences, role, usage_counts)
     root_cause = _root_cause_summary(root_paths, ecosystem, package_name, occurrences, environment_label)
@@ -211,6 +244,7 @@ def _package_context(
         "root_paths": root_paths,
         "direct_dependency": direct_dependency,
         "manifest_scope": manifest_scope,
+        "version_install_scopes": scope_summary["scopes"],
         "manifest_paths": sorted(set(manifest_paths)),
         "role": role["role"],
         "role_label": role["label"],
@@ -283,6 +317,9 @@ def _basic_package_context(
         if scope in manifest_scopes:
             manifest_scope = scope
             break
+    scope_summary = _occurrence_scope_summary(occurrences)
+    manifest_scope = _version_specific_manifest_scope(manifest_scope, direct_dependency, scope_summary)
+    usage_counts = _version_specific_usage_counts(usage_counts, direct_dependency, scope_summary)
     role = _package_role(package_name, manifest_scope, usage_counts, direct_dependency)
     environment_label = _environment_label(occurrences, role, usage_counts)
     root_cause = _root_cause_summary(
@@ -305,6 +342,7 @@ def _basic_package_context(
         "root_paths": root_paths,
         "direct_dependency": direct_dependency,
         "manifest_scope": manifest_scope,
+        "version_install_scopes": scope_summary["scopes"],
         "manifest_paths": sorted(set(manifest_paths)),
         "role": role["role"],
         "role_label": role["label"],

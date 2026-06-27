@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import signal
 import time
+from collections import Counter
 from pathlib import Path
 
 from .advisories import refresh_findings
@@ -62,13 +63,14 @@ def run_project_scan(
     phases: list[dict] = []
     started_at = utc_now()
     run_started = time.monotonic()
+    effective_max_seconds = max_seconds
 
     def remaining_seconds() -> float | None:
         """Return the remaining scan budget, or None for unbounded scans."""
 
-        if max_seconds is None:
+        if effective_max_seconds is None:
             return None
-        return max_seconds - (time.monotonic() - run_started)
+        return effective_max_seconds - (time.monotonic() - run_started)
 
     def run_phase(name: str, callback, *, required: bool = True):
         """Execute one named phase and record timing/status for operator output."""
@@ -135,6 +137,20 @@ def run_project_scan(
     operator_view = None
     operator_report_path = None
     handoff_path = None
+    scan_scope: dict = {}
+    scan_policy: dict = {
+        "large_repo_mode": False,
+        "large_repo_reason": None,
+        "requested_max_seconds": max_seconds,
+        "effective_max_seconds": effective_max_seconds,
+        "requested_ghsa_max_packages": ghsa_max_packages,
+        "effective_ghsa_max_packages": ghsa_max_packages,
+        "api_policy": {
+            "ghsa_max_workers": config.ghsa_max_workers,
+            "api_request_min_interval_seconds": config.api_request_min_interval_seconds,
+            "osv_batch_delay_seconds": config.osv_batch_delay_seconds,
+        },
+    }
     status = "ok"
     budget_error = None
     try:
@@ -154,6 +170,17 @@ def run_project_scan(
             engine=engine,
         ),
         )
+        scan_scope = _scan_scope(db, root, include_installed=include_installed)
+        large_reasons = _large_repo_reasons(config, scan_scope)
+        if large_reasons:
+            scan_policy["large_repo_mode"] = True
+            scan_policy["large_repo_reason"] = "; ".join(large_reasons)
+            if effective_max_seconds is not None and effective_max_seconds < config.large_repo_min_seconds:
+                effective_max_seconds = config.large_repo_min_seconds
+            if include_ghsa and ghsa_max_packages > config.large_repo_ghsa_package_cap:
+                ghsa_max_packages = config.large_repo_ghsa_package_cap
+            scan_policy["effective_max_seconds"] = effective_max_seconds
+            scan_policy["effective_ghsa_max_packages"] = ghsa_max_packages
         if include_threat_intel:
             run_phase("threat-intel-sources-init", lambda: ensure_default_threat_intel_sources(config))
             threat_intel = run_phase(
@@ -236,6 +263,7 @@ def run_project_scan(
         "status": status,
         "budget_error": budget_error,
         "max_seconds": max_seconds,
+        "effective_max_seconds": effective_max_seconds,
         "started_at": started_at,
         "completed_at": utc_now(),
         "elapsed_seconds": round(time.monotonic() - run_started, 4),
@@ -243,6 +271,8 @@ def run_project_scan(
         "ecosystems": selected_ecosystems,
         "compact": compact,
         "inventory_runs": inventory_runs,
+        "scan_scope": scan_scope,
+        "scan_policy": scan_policy,
         "threat_intel": threat_intel,
         "refresh": refresh,
         "operator_view": operator_view,
@@ -279,6 +309,51 @@ def run_project_scan(
     write_json(path, payload)
     payload["report_path"] = str(path)
     return payload
+
+
+def _scan_scope(db: Database, root: str, *, include_installed: bool) -> dict:
+    """Summarize dependency-surface size for budgets and operator evidence."""
+
+    rows = [dict(row) for row in db.current_packages_for_root(root)]
+    unique_versions = {
+        (row["ecosystem"], row["normalized_name"], row["version"])
+        for row in rows
+    }
+    source_files = {
+        row["source_file"]
+        for row in rows
+        if row.get("source_file")
+    }
+    by_ecosystem = Counter(row["ecosystem"] for row in rows)
+    by_source_type = Counter(row.get("source_type") or "unknown" for row in rows)
+    dependency_files = fingerprint_dependency_files(root, include_installed=include_installed)
+    file_kinds = Counter(item["file_kind"] for item in dependency_files)
+    return {
+        "package_rows": len(rows),
+        "unique_package_versions": len(unique_versions),
+        "source_file_count": len(source_files),
+        "dependency_file_count": len(dependency_files),
+        "dependency_file_kinds": dict(sorted(file_kinds.items())),
+        "ecosystems": dict(sorted(by_ecosystem.items())),
+        "source_types": dict(sorted(by_source_type.items())),
+    }
+
+
+def _large_repo_reasons(config: GuardianConfig, scan_scope: dict) -> list[str]:
+    """Return the policy reasons that make a repo need large-surface handling."""
+
+    reasons = []
+    unique_versions = scan_scope.get("unique_package_versions", 0)
+    dependency_files = scan_scope.get("dependency_file_count", 0)
+    if unique_versions >= config.large_repo_package_threshold:
+        reasons.append(
+            f"unique package versions {unique_versions} >= threshold {config.large_repo_package_threshold}"
+        )
+    if dependency_files >= config.large_repo_dependency_file_threshold:
+        reasons.append(
+            f"dependency files {dependency_files} >= threshold {config.large_repo_dependency_file_threshold}"
+        )
+    return reasons
 
 
 def _write_project_json_report(config: GuardianConfig, root: str, prefix: str, payload: dict) -> Path:

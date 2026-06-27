@@ -44,6 +44,13 @@ class GuardianConfig:
         default_factory=lambda: ["npm", "pypi"]
     )
     request_timeout_seconds: int = 20
+    api_request_min_interval_seconds: float = 0.25
+    ghsa_max_workers: int = 2
+    osv_batch_delay_seconds: float = 0.1
+    large_repo_package_threshold: int = 600
+    large_repo_dependency_file_threshold: int = 25
+    large_repo_min_seconds: int = 600
+    large_repo_ghsa_package_cap: int = 25
     blocked_severities: List[str] = field(
         default_factory=lambda: ["critical", "high"]
     )

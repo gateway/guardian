@@ -8,6 +8,9 @@ Repo Scout is Guardian's workflow for temporary community scans of public GitHub
 - Use isolated temporary Guardian state instead of the user's normal Guardian database.
 - Do not install dependencies or execute project code.
 - Run with explicit per-repo and total time budgets.
+- Preflight dependency-file count before the full scan.
+- Automatically allow a longer large-repo budget when a repo has a monorepo-sized dependency surface.
+- Keep live advisory requests capped and paced so broad scans do not hammer OSV, GitHub Security Advisories, or enrichment endpoints.
 - Surface only high-signal dependency PR candidates.
 - Delete temporary clones and temporary state by default.
 
@@ -15,20 +18,23 @@ This workflow is intentionally separate from normal local project scans. Normal 
 
 ## Efficient Flow
 
-Use a two-pass model:
+Use a paced single-pass model first. Guardian will preflight the repo after clone, then switch into large-repo handling when dependency-file or package counts are high.
 
-1. Run a bounded standard scout pass first.
+Run a standard scout pass:
 
 ```bash
 guardian repo-scout \
   --repo owner/name \
   --scan-mode standard \
-  --per-repo-seconds 120 \
-  --total-seconds 900 \
+  --include-ghsa \
+  --ghsa-max-packages 40 \
+  --per-repo-seconds 300 \
+  --large-repo-seconds 900 \
+  --total-seconds 1800 \
   --json
 ```
 
-2. Escalate only if the first pass shows signal, or when the user explicitly wants stronger coverage.
+Escalate only if the first pass shows signal, or when the user explicitly wants stronger coverage.
 
 ```bash
 guardian repo-scout \
@@ -36,12 +42,35 @@ guardian repo-scout \
   --scan-mode standard \
   --include-ghsa \
   --ghsa-max-packages 80 \
-  --per-repo-seconds 180 \
-  --total-seconds 240 \
+  --per-repo-seconds 300 \
+  --large-repo-seconds 1200 \
+  --total-seconds 1800 \
   --json
 ```
 
 Use `deep` mode only for candidate repos or when preparing a PR. Broad batches should not start in deep mode because one large repo can consume the whole run.
+
+If a repo still times out, inspect `preflight`, `scan_scope`, `scan_policy`, `phases`, and `source_status` before retrying. Increase `--large-repo-seconds` once when the repo is clearly large; do not launch repeated full scans.
+
+## Large-Repo Handling
+
+Repo Scout now reports:
+
+- `preflight.dependency_file_count`: dependency files found before the scan.
+- `scan_scope.unique_package_versions`: exact package/version pairs considered.
+- `scan_policy.large_repo_mode`: whether Guardian switched to large-repo handling.
+- `scan_policy.effective_max_seconds`: the budget used after large-repo adjustment.
+- `scan_policy.effective_ghsa_max_packages`: the effective GHSA exact-match cap.
+- `scan_policy.api_policy`: live-source pacing, including GHSA worker count and request spacing.
+
+Default live-source policy is conservative:
+
+- GHSA exact-match workers are capped at `2`.
+- GHSA requests are spaced by at least `0.25` seconds per client.
+- OSV batch calls pause briefly between large batches.
+- Large-repo mode caps GHSA exact-match package count unless the user explicitly raises it.
+
+This does not make scans instant. It makes long scans intentional, bounded, and less likely to hit avoidable rate limits.
 
 ## First Large-Repo Test
 
@@ -51,7 +80,7 @@ Repository:
 openclaw/openclaw
 ```
 
-Fast standard scout pass:
+Fast standard scout pass before large-repo preflight existed:
 
 - Runtime: 26.7 seconds.
 - Unique packages: 1,519.
@@ -62,7 +91,7 @@ Fast standard scout pass:
 - High-signal PR candidates: 0.
 - Temporary clones/state: deleted.
 
-GHSA-enabled standard scout pass:
+GHSA-enabled standard scout pass before large-repo preflight existed:
 
 - Runtime: 41.0 seconds.
 - Unique packages: 1,519.
@@ -123,6 +152,36 @@ Best immediate PR candidate: langgenius/dify for langsmith@0.8.5 -> 0.8.18, with
 
 The batch also proved that broad GHSA escalation over large repos is workable but expensive. Prefer standard scout first, then exact package verification for candidate packages before rerunning a wide GHSA pass.
 
+## Large-Repo Regression Test
+
+Repository:
+
+```text
+continuedev/continue
+```
+
+Earlier behavior:
+
+- Standard GHSA-enabled scout exceeded the scan budget during advisory refresh.
+- The scan had already cloned and inventoried the repo, but enrichment had too much package surface for the old budget.
+
+Verified behavior after large-repo handling:
+
+- Runtime: 246.3 seconds.
+- Dependency files: 46.
+- Unique package versions: 4,460.
+- Evidence rows: 11,111.
+- Large-repo mode: enabled.
+- Effective budget: 900 seconds.
+- Requested GHSA target cap: 60.
+- Effective GHSA target cap: 25.
+- GHSA worker cap: 2.
+- API request spacing: 0.25 seconds.
+- Status: completed.
+- High-signal candidates: 4.
+
+This test verifies that a huge repo can finish as one paced scan instead of failing because the initial budget was too small.
+
 ## What We Should Improve
 
 1. Add an automatic two-stage mode.
@@ -134,8 +193,8 @@ Today callers can redirect JSON to a file. A first-class `--report-path` option 
 3. Surface source coverage more clearly.
 The output should summarize source coverage in one small block: OSV packages checked, GHSA target count, threat-intel revision, packages skipped by budget, and whether any source failed or was rate-limited.
 
-4. Add repo preflight sizing.
-Before the full scan, Guardian should estimate repo size, dependency-file count, package count, and likely scan cost. That lets Codex choose a safe budget before spending time on a huge repo.
+4. Keep refining repo preflight sizing.
+Guardian now preflights dependency-file count and reports post-inventory package counts. Future refinement should estimate scan cost even earlier and recommend a budget before live advisory refresh begins.
 
 5. Keep improving PR-candidate filters.
 Repo Scout already suppresses root package self-version findings so projects like `axios/axios` do not become bad PR candidates. We should continue filtering findings that are real advisories but poor upstream PR targets, such as docs-only manifests, generated fixtures, vendored examples, and intentionally vulnerable test fixtures.

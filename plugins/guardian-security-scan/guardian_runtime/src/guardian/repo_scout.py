@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .config import GuardianConfig, SEED_CATALOG_DIR, seed_local_catalogs
 from .db import Database
+from .dependency_files import fingerprint_dependency_files
 from .ops import run_project_scan
 from .scan_modes import apply_scan_mode
 from .util import utc_now
@@ -202,6 +203,24 @@ def _summarize_scan_payload(
         "bottom_line": operator_view.get("bottom_line") or [],
         "source_status": payload.get("source_status"),
         "refresh": payload.get("refresh"),
+        "scan_scope": payload.get("scan_scope"),
+        "scan_policy": payload.get("scan_policy"),
+    }
+
+
+def _preflight_dependency_surface(config: GuardianConfig, root: Path, *, include_installed: bool) -> dict:
+    """Count dependency files before a scan so repo-scout can choose a safe budget."""
+
+    dependency_files = fingerprint_dependency_files(root, include_installed=include_installed)
+    large_repo_mode = len(dependency_files) >= config.large_repo_dependency_file_threshold
+    return {
+        "dependency_file_count": len(dependency_files),
+        "large_repo_mode": large_repo_mode,
+        "large_repo_reason": (
+            f"dependency files {len(dependency_files)} >= threshold {config.large_repo_dependency_file_threshold}"
+            if large_repo_mode
+            else None
+        ),
     }
 
 
@@ -215,6 +234,7 @@ def run_repo_scout(
     include_threat_intel: bool = True,
     threat_intel_severity_floor: str = "high",
     per_repo_seconds: int = 120,
+    large_repo_seconds: int | None = None,
     total_seconds: int = 900,
     clone_timeout_seconds: int = 120,
     high_signal_limit: int = 10,
@@ -271,6 +291,8 @@ def run_repo_scout(
 
             config = _isolated_config(repo_state, repo_dir)
             _mkdirs_for_config(config)
+            preflight = _preflight_dependency_surface(config, repo_dir, include_installed=include_installed)
+            item["preflight"] = preflight
             db = Database(config.db_path)
             db.initialize()
             try:
@@ -282,7 +304,16 @@ def run_repo_scout(
                         include_threat_intel=include_threat_intel,
                         compact=True,
                     )
-                    scan_budget = min(per_repo_seconds, max(1, int(total_seconds - (time.monotonic() - started))))
+                    requested_repo_budget = per_repo_seconds
+                    if preflight["large_repo_mode"]:
+                        requested_repo_budget = max(
+                            per_repo_seconds,
+                            large_repo_seconds or config.large_repo_min_seconds,
+                        )
+                    scan_budget = min(
+                        requested_repo_budget,
+                        max(1, int(total_seconds - (time.monotonic() - started))),
+                    )
                     payload = run_project_scan(
                         config,
                         db,
@@ -332,6 +363,7 @@ def run_repo_scout(
             "elapsed_seconds": round(time.monotonic() - started, 4),
             "budgets": {
                 "per_repo_seconds": per_repo_seconds,
+                "large_repo_seconds": large_repo_seconds,
                 "total_seconds": total_seconds,
                 "clone_timeout_seconds": clone_timeout_seconds,
                 "ghsa_max_packages": ghsa_max_packages,

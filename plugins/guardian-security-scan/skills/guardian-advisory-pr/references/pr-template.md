@@ -7,6 +7,14 @@
 
 `<One short paragraph: explain what changed, expected user-visible impact, and the validation already run.>`
 
+## Repository Contribution Checks
+
+- Required base branch: `<branch, or "not specified">`
+- Required issue/discussion: `<linked item, or explain why none is included>`
+- CLA/legal text: `<included exactly as required | not required | pending user authorization>`
+- PR template compliance: `<sections preserved | deviations explained>`
+- Duplicate check: `<no matching open PR found | related PR/issue linked>`
+
 ## What Changed
 
 - `<dependency floor / lockfile / override / parent package changed>`
@@ -15,6 +23,16 @@
 ## What Users Will See
 
 `<No direct user-facing behavior change is expected.>`
+
+## Surface Area
+
+- [ ] Internal / non-user-facing
+- [ ] UI
+- [ ] API
+- [ ] Default behavior
+- [ ] Data/model/schema
+
+Notes: `<brief explanation of why these boxes are selected>`
 
 ## Why This Change Is Needed
 
@@ -48,6 +66,10 @@ Dependency path:
 Evidence:
 
 - `<file>:<line>`: `<what this line proves>`
+
+Generated dependency sidecars:
+
+- `<file or none found>`: `<updated | not applicable | pending maintainer environment | why>`
 
 ## Code Usage Review
 
@@ -85,7 +107,15 @@ Ran:
 
 Suggested maintainer validation:
 
-- `<command or smoke test>`
+- `<command or smoke test, only for validation that could not be safely run>`
+
+Validation gap:
+
+- `<state missing repo-specific validation clearly. Do not imply maintainers should do all validation if the contributor did not run enough checks for the repo's standards.>`
+
+## Out of Scope / Still Visible
+
+- `<related finding left unresolved, or "None known">`: `<why it is out of scope>`
 
 ## Notes
 

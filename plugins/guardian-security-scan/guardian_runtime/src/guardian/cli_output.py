@@ -9,6 +9,14 @@ def print_project_scan_summary(payload: dict) -> None:
     print(f"root: {payload['root_path']}")
     print(f"elapsed: {payload['elapsed_seconds']}s")
     print(f"packages checked: {payload['refresh']['packages_checked']}")
+    scan_policy = payload.get("scan_policy") or {}
+    if scan_policy.get("large_repo_mode"):
+        print(f"large-repo mode: {scan_policy.get('large_repo_reason')}")
+        print(
+            "effective budget: "
+            f"{scan_policy.get('effective_max_seconds')}s | "
+            f"GHSA cap: {scan_policy.get('effective_ghsa_max_packages')}"
+        )
     if payload.get("threat_intel"):
         print(f"threat-intel entries: {payload['threat_intel']['entries_written']}")
         for source in payload["threat_intel"]["source_reports"]:

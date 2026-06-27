@@ -80,7 +80,11 @@ def refresh_findings(
     ghsa_error: str | None = None
     ghsa_exact_cache: dict[tuple[str, str, str], list[dict]] = {}
     if ghsa_target_packages:
-        ghsa_exact_cache, ghsa_error = _fetch_ghsa_exact_matches(ghsa, ghsa_target_packages)
+        ghsa_exact_cache, ghsa_error = _fetch_ghsa_exact_matches(
+            ghsa,
+            ghsa_target_packages,
+            max_workers=config.ghsa_max_workers,
+        )
     for package in packages:
         # Each package is resolved source-by-source, then stale findings for that
         # package/source are closed. This lets a later scan prove that a fix
@@ -313,6 +317,11 @@ def refresh_findings(
         "ghsa_error": ghsa_error,
         "ghsa_skipped_reason": ghsa_skipped_reason,
         "live_enrichment": enrich_live,
+        "api_policy": {
+            "ghsa_max_workers": config.ghsa_max_workers,
+            "api_request_min_interval_seconds": config.api_request_min_interval_seconds,
+            "osv_batch_delay_seconds": config.osv_batch_delay_seconds,
+        },
     }
 
 
@@ -333,12 +342,14 @@ def _unique_package_versions(packages: list[dict]) -> list[dict]:
 def _fetch_ghsa_exact_matches(
     ghsa: GitHubAdvisoriesClient,
     target_packages: dict[tuple[str, str, str], dict],
+    *,
+    max_workers: int = 2,
 ) -> tuple[dict[tuple[str, str, str], list[dict]], str | None]:
     cache: dict[tuple[str, str, str], list[dict]] = {}
     first_error: str | None = None
     if not target_packages:
         return cache, None
-    worker_count = min(8, len(target_packages))
+    worker_count = max(1, min(max_workers, len(target_packages)))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = {
             executor.submit(
