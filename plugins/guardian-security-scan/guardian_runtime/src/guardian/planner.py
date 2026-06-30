@@ -6,6 +6,7 @@ from functools import cmp_to_key
 
 from .config import GuardianConfig
 from .intel import choose_best_severity, extract_ghsa_severity, extract_osv_severity, merge_aliases
+from .osv_matching import osv_explicit_versions_exclude_package
 from .registries import LatestVersionResolver
 from .sources import GitHubAdvisoriesClient, LocalCatalogMatcher, OSVClient
 from .versions import compare_versions
@@ -64,6 +65,8 @@ class CandidateResolver:
                     "summary": vuln_stub.get("summary"),
                     "affected": [],
                 }
+            if osv_explicit_versions_exclude_package(vuln, package):
+                continue
             ghsa_enrichment = None
             for ghsa_id in [item for item in merge_aliases([advisory_id], vuln.get("aliases") or []) if item.upper().startswith("GHSA-")]:
                 try:

@@ -115,12 +115,20 @@ def _run_git_clone(repo_url: str, destination: Path, timeout_seconds: int) -> di
 def _finding_is_high_signal(item: dict) -> bool:
     """Keep scout output focused on findings that could justify maintainer action."""
 
+    severity = str(item.get("severity") or item.get("max_severity") or item.get("highest_severity") or "").lower()
+    priority = str(item.get("priority") or item.get("action_bucket") or item.get("action") or item.get("risk_label") or "").lower()
+    labels = str(item.get("labels") or item.get("risk_labels") or item.get("classification_labels") or "").lower()
+    if "low priority" in priority and not any(
+        marker in labels
+        for marker in ["known exploited", "malicious", "kev", "high exploit likelihood"]
+    ):
+        return False
     encoded = " ".join(
         [
-            str(item.get("severity") or item.get("max_severity") or ""),
-            str(item.get("priority") or item.get("action_bucket") or item.get("action") or ""),
+            severity,
+            priority,
             str(item.get("confidence") or ""),
-            str(item.get("labels") or item.get("risk_labels") or ""),
+            labels,
             str(item.get("summary") or item.get("title") or ""),
         ]
     ).lower()
@@ -134,7 +142,7 @@ def _finding_is_high_signal(item: dict) -> bool:
             "known exploited",
             "malicious",
             "kev",
-            "exploit",
+            "high exploit likelihood",
         ]
     )
 

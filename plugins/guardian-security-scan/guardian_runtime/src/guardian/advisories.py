@@ -19,6 +19,7 @@ from .intel import (
     merge_aliases,
 )
 from .sources import EPSSClient, GitHubAdvisoriesClient, KEVClient, LocalCatalogMatcher, NVDClient, OSVClient
+from .osv_matching import osv_explicit_versions_exclude_package
 
 
 def refresh_findings(
@@ -93,8 +94,10 @@ def refresh_findings(
         matched_osv_ids = []
         for vuln_stub in osv_by_package.get(key, []):
             advisory_id = vuln_stub["id"]
-            matched_osv_ids.append(advisory_id)
             vuln = osv.get_vulnerability(advisory_id)
+            if osv_explicit_versions_exclude_package(vuln, package):
+                continue
+            matched_osv_ids.append(advisory_id)
             osv_aliases = vuln.get("aliases") or []
             osv_severity = extract_osv_severity(vuln)
             osv_details_url = extract_osv_primary_url(vuln)

@@ -28,6 +28,8 @@ from guardian.upstream_context import (  # noqa: E402
     detect_repo_reporting_policy,
     _tracking_match_is_relevant,
 )
+from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
+from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 
 
 def run_guardian(
@@ -237,6 +239,45 @@ def assert_upstream_reporting_policy_helpers(tmp: Path) -> None:
         raise AssertionError("dependency security title should count as upstream tracking")
 
 
+def assert_osv_explicit_version_guard() -> None:
+    """OSV explicit affected-version lists should override stale open ranges."""
+
+    vuln = {
+        "affected": [
+            {
+                "package": {"name": "couchbase", "ecosystem": "PyPI"},
+                "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}]}],
+                "versions": ["4.3.5", "4.4.1", "4.5.0"],
+            }
+        ]
+    }
+    package = {"package_name": "couchbase", "ecosystem": "pypi", "version": "4.6.1"}
+    if not osv_explicit_versions_exclude_package(vuln, package):
+        raise AssertionError("explicit OSV affected versions should exclude newer unlisted package version")
+    affected_package = {**package, "version": "4.5.0"}
+    if osv_explicit_versions_exclude_package(vuln, affected_package):
+        raise AssertionError("explicit OSV affected versions should not exclude listed package version")
+
+
+def assert_repo_scout_high_signal_filter() -> None:
+    """Repo Scout should not promote low-priority CVE noise to PR candidates."""
+
+    low_priority = {
+        "package_name": "torch",
+        "highest_severity": "low",
+        "risk_label": "Low Priority",
+        "summary": "Potential exploit condition with low practical priority",
+    }
+    if _finding_is_high_signal(low_priority):
+        raise AssertionError("low-priority findings should not be high-signal PR candidates")
+    exploited = {
+        **low_priority,
+        "classification_labels": ["Known Exploited"],
+    }
+    if not _finding_is_high_signal(exploited):
+        raise AssertionError("known-exploited findings should remain high signal")
+
+
 def main() -> int:
     """Copy fixtures to temp space and run the deterministic release assertions."""
 
@@ -251,6 +292,8 @@ def main() -> int:
         assert_snapshot_resolution(tmp)
         assert_daily_watch_fingerprints(tmp)
         assert_upstream_reporting_policy_helpers(tmp)
+        assert_osv_explicit_version_guard()
+        assert_repo_scout_high_signal_filter()
     print("fixture tests passed")
     return 0
 
