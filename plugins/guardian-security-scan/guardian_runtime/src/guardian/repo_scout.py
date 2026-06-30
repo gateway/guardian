@@ -22,6 +22,7 @@ from .db import Database
 from .dependency_files import fingerprint_dependency_files
 from .ops import run_project_scan
 from .scan_modes import apply_scan_mode
+from .upstream_context import enrich_findings_with_upstream_context
 from .util import utc_now
 
 
@@ -238,6 +239,7 @@ def run_repo_scout(
     total_seconds: int = 900,
     clone_timeout_seconds: int = 120,
     high_signal_limit: int = 10,
+    check_upstream: bool = True,
     max_repos: int | None = None,
     keep_workdir: bool = False,
     engine: str | None = None,
@@ -342,13 +344,38 @@ def run_repo_scout(
             finally:
                 db.close()
 
-            item.update(
-                _summarize_scan_payload(
-                    payload,
-                    high_signal_limit,
-                    root_self_packages=root_self_packages,
-                )
+            summary = _summarize_scan_payload(
+                payload,
+                high_signal_limit,
+                root_self_packages=root_self_packages,
             )
+            if check_upstream and summary["high_signal_top_packages"]:
+                # Duplicate checks are intentionally scoped to the already
+                # filtered high-signal list so public-repo scouting stays
+                # bounded and does not hammer GitHub search.
+                upstream = enrich_findings_with_upstream_context(
+                    display_name,
+                    repo_dir,
+                    summary["high_signal_top_packages"],
+                )
+                summary["repo_policy"] = upstream["repo_policy"]
+                summary["reporting_path_summary"] = upstream["reporting_path_summary"]
+                summary["high_signal_top_packages"] = upstream["findings"]
+                tracked = upstream["reporting_path_summary"].get("Do not report, already tracked", 0)
+                if tracked and tracked == summary["high_signal_count"]:
+                    summary["scout_headline"] = (
+                        f"{summary['high_signal_count']} high-signal finding(s), "
+                        "all already tracked upstream"
+                    )
+            elif summary["high_signal_top_packages"]:
+                summary["repo_policy"] = {
+                    "default_decision": "not-checked",
+                    "reason": "Upstream duplicate/policy checks were disabled.",
+                    "evidence_files": [],
+                    "matched_pattern": None,
+                }
+                summary["reporting_path_summary"] = {"not-checked": len(summary["high_signal_top_packages"])}
+            item.update(summary)
             item["status"] = item.get("status") or payload.get("status") or "ok"
             item["elapsed_seconds"] = round(time.monotonic() - repo_started, 4)
             results.append(item)
@@ -367,6 +394,7 @@ def run_repo_scout(
                 "total_seconds": total_seconds,
                 "clone_timeout_seconds": clone_timeout_seconds,
                 "ghsa_max_packages": ghsa_max_packages,
+                "check_upstream": check_upstream,
             },
             "state_policy": "ephemeral-temp-state-deleted" if cleanup else "kept-for-debugging",
             "workdir_policy": "ephemeral-clones-deleted" if cleanup else "kept-for-debugging",

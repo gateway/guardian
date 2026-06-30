@@ -182,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
                 total_seconds=args.total_seconds,
                 clone_timeout_seconds=args.clone_timeout_seconds,
                 high_signal_limit=args.high_signal_limit,
+                check_upstream=not args.skip_upstream_check,
                 max_repos=args.max_repos,
                 keep_workdir=args.keep_workdir,
                 engine=args.engine,
@@ -201,7 +202,8 @@ def main(argv: list[str] | None = None) -> int:
                         name = finding.get("package") or finding.get("name") or finding.get("package_name") or "unknown"
                         severity = finding.get("severity") or finding.get("max_severity") or "unknown"
                         action = finding.get("action") or finding.get("priority") or finding.get("action_bucket") or "review"
-                        print(f"  - {name}: {severity} | {action}")
+                        reporting = (finding.get("reporting_path") or {}).get("decision") or "reporting path not checked"
+                        print(f"  - {name}: {severity} | {action} | {reporting}")
             return 0
 
         if args.command == "intel":

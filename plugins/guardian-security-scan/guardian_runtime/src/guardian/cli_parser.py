@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     repo_scout.add_argument("--no-threat-intel", dest="include_threat_intel", action="store_false")
     repo_scout.add_argument("--threat-intel-severity-floor", choices=["unknown", "low", "medium", "high", "critical"], default="high")
     repo_scout.add_argument("--high-signal-limit", type=int, default=10)
+    repo_scout.add_argument("--skip-upstream-check", action="store_true", help="Disable GitHub duplicate and repo policy checks")
     repo_scout.add_argument("--keep-workdir", action="store_true")
     repo_scout.add_argument("--engine", choices=["auto", "guardian-native"])
     repo_scout.add_argument("--json", action="store_true")

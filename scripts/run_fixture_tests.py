@@ -16,6 +16,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "guardian-security-scan"
 GUARDIAN = PLUGIN_ROOT / "scripts" / "guardian"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
+sys.path.insert(0, str(PLUGIN_ROOT / "guardian_runtime" / "src"))
+
+from guardian.upstream_context import (  # noqa: E402
+    REPORT_ALREADY_TRACKED,
+    REPORT_OPEN_ISSUE,
+    REPORT_PRIVATE,
+    REPORT_PUBLIC_PR,
+    advisory_terms,
+    decide_reporting_path,
+    detect_repo_reporting_policy,
+    _tracking_match_is_relevant,
+)
 
 
 def run_guardian(
@@ -186,6 +198,45 @@ def assert_daily_watch_fingerprints(tmp: Path) -> None:
         raise AssertionError(f"third daily-watch should report package.json changed: {third_state}")
 
 
+def assert_upstream_reporting_policy_helpers(tmp: Path) -> None:
+    """Reporting-path helpers should classify repo policy and duplicate state deterministically."""
+
+    private_repo = tmp / "policy-private"
+    private_repo.mkdir()
+    (private_repo / "SECURITY.md").write_text("Report privately via GitHub Security Advisories. Do not open public issues.")
+    private_policy = detect_repo_reporting_policy(private_repo)
+    if private_policy["default_decision"] != REPORT_PRIVATE:
+        raise AssertionError(f"private security policy not detected: {private_policy}")
+
+    issue_repo = tmp / "policy-issue-first"
+    issue_repo.mkdir()
+    (issue_repo / "CONTRIBUTING.md").write_text("Please open an issue first before submitting a pull request.")
+    issue_policy = detect_repo_reporting_policy(issue_repo)
+    if issue_policy["default_decision"] != REPORT_OPEN_ISSUE:
+        raise AssertionError(f"issue-first policy not detected: {issue_policy}")
+
+    public_repo = tmp / "policy-public"
+    public_repo.mkdir()
+    public_policy = detect_repo_reporting_policy(public_repo)
+    if public_policy["default_decision"] != REPORT_PUBLIC_PR:
+        raise AssertionError(f"public PR fallback not selected: {public_policy}")
+
+    terms = advisory_terms({"advisory_links": ["https://github.com/advisories/GHSA-abcd-1234-wxyz", "CVE-2026-12345"]})
+    if terms != ["CVE-2026-12345", "GHSA-abcd-1234-wxyz"]:
+        raise AssertionError(f"advisory terms not normalized: {terms}")
+
+    decision = decide_reporting_path(public_policy, {"status": "already-tracked"})
+    if decision["decision"] != REPORT_ALREADY_TRACKED:
+        raise AssertionError(f"already-tracked finding should suppress new reports: {decision}")
+
+    unrelated = {"title": "WeChat media downloads broken with cryptography >= 48.0.0"}
+    if _tracking_match_is_relevant(unrelated, "cryptography", "cryptography"):
+        raise AssertionError("generic package bug should not count as upstream security tracking")
+    relevant = {"title": "fix(deps): bump cryptography for GHSA-537c-gmf6-5ccf"}
+    if not _tracking_match_is_relevant(relevant, "cryptography", "cryptography"):
+        raise AssertionError("dependency security title should count as upstream tracking")
+
+
 def main() -> int:
     """Copy fixtures to temp space and run the deterministic release assertions."""
 
@@ -199,6 +250,7 @@ def main() -> int:
         assert_uv_lock_fixture(tmp)
         assert_snapshot_resolution(tmp)
         assert_daily_watch_fingerprints(tmp)
+        assert_upstream_reporting_policy_helpers(tmp)
     print("fixture tests passed")
     return 0
 

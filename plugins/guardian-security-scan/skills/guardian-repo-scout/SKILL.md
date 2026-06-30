@@ -38,7 +38,13 @@ If the scout output reports credible `high_signal_top_packages`, run a focused d
 Repo Scout must not install dependencies, run project scripts, modify cloned code, or write findings into the user's normal Guardian database. Clones and temporary Guardian state are deleted by default.
 
 5. Decide whether an upstream PR is maintainable.
-Before switching to `guardian-advisory-pr`, check the target repo's contribution rules, target branch, PR template, required issue/discussion, CLA text, duplicate PRs, and security disclosure expectations. Mature repos may already have internal tools; only propose a PR when Guardian can add a narrow fix plus useful validation.
+Before switching to `guardian-advisory-pr`, use Guardian's `reporting_path` and `upstream_tracking` output. Mature repos may already have internal tools or active dependency PRs; only propose a new PR when Guardian can add a narrow fix plus useful validation.
+
+Reporting paths:
+- `Public PR OK`: a direct PR appears acceptable.
+- `Open issue first`: repo policy suggests discussion or an issue before a PR.
+- `Private security advisory only`: repo policy asks for private security reporting.
+- `Do not report, already tracked`: an open upstream PR or issue already appears to cover the same package/advisory.
 
 6. Summarize for human decision.
 Report:
@@ -49,7 +55,8 @@ Report:
 - high-signal findings only
 - advisory identifiers and links when available
 - confidence/runtime context if Guardian provides it
-- whether a PR is worth considering
+- `reporting_path` and `upstream_tracking` for each high-signal finding
+- whether a PR is worth considering or would duplicate existing maintainer work
 - cleanup status for temporary clones and state
 
 ## Rules

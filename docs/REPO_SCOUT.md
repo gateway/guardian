@@ -12,6 +12,8 @@ Repo Scout is Guardian's workflow for temporary community scans of public GitHub
 - Automatically allow a longer large-repo budget when a repo has a monorepo-sized dependency surface.
 - Keep live advisory requests capped and paced so broad scans do not hammer OSV, GitHub Security Advisories, or enrichment endpoints.
 - Surface only high-signal dependency PR candidates.
+- Check matching upstream PRs/issues for high-signal findings.
+- Classify the reporting path as public PR, issue-first, private advisory, or already tracked.
 - Delete temporary clones and temporary state by default.
 
 This workflow is intentionally separate from normal local project scans. Normal scans track local project history and fix verification. Repo Scout is disposable unless the user chooses to keep artifacts.
@@ -51,6 +53,22 @@ guardian repo-scout \
 Use `deep` mode only for candidate repos or when preparing a PR. Broad batches should not start in deep mode because one large repo can consume the whole run.
 
 If a repo still times out, inspect `preflight`, `scan_scope`, `scan_policy`, `phases`, and `source_status` before retrying. Increase `--large-repo-seconds` once when the repo is clearly large; do not launch repeated full scans.
+
+## Reporting Path
+
+For each high-signal finding, Repo Scout adds:
+
+- `upstream_tracking`: matching open PRs/issues found through capped GitHub search.
+- `reporting_path`: the recommended next action for upstream communication.
+
+The reporting path can be:
+
+- `Public PR OK`: no policy or duplicate signal blocks a focused PR.
+- `Open issue first`: contribution docs suggest discussion or an issue before a PR.
+- `Private security advisory only`: security policy asks that vulnerability reports stay private.
+- `Do not report, already tracked`: a matching open PR or issue already exists.
+
+This check is intentionally bounded to the high-signal package list. Use `--skip-upstream-check` for an offline or faster scout pass.
 
 ## Large-Repo Handling
 
