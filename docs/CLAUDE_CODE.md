@@ -67,6 +67,8 @@ Guardian's release check discovers that path automatically when it exists and pr
 
 ## Smoke Test
 
+Use Sonnet with low or normal effort for smoke scans. Guardian's CLI does the actual dependency inventory and advisory matching locally, so Opus/High is not needed to verify install health.
+
 After installing, verify the cached plugin can run without spending model tokens on a full scan:
 
 ```bash
@@ -104,3 +106,4 @@ Claude Desktop Code uses the Claude Code runtime under the hood. A response that
 - Local state is stored outside the plugin at `~/.guardian-security-scan` unless `GUARDIAN_STATE_DIR` is set.
 - GitHub API tokens are optional. `GITHUB_TOKEN`, `GH_TOKEN`, or an authenticated GitHub CLI improve rate limits for deeper advisory checks.
 - No hooks or MCP servers are enabled by default; Guardian contributes skills and a `guardian` executable wrapper.
+- Use Sonnet/low or normal effort for smoke scans and routine summaries. Save Opus/High for complex advisory interpretation, PR wording, or remediation tradeoff review.

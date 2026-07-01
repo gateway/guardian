@@ -121,6 +121,8 @@ GUARDIAN_SMOKE_STATE="$(mktemp -d "${TMPDIR:-/tmp}/guardian-smoke.XXXXXX")"
 GUARDIAN_STATE_DIR="$GUARDIAN_SMOKE_STATE" "$GUARDIAN_PLUGIN_BIN" report summary --json
 ```
 
+For Claude smoke scans, use Sonnet with low or normal effort. Guardian does the scan locally; Opus/High is unnecessary for install verification and wastes tokens.
+
 ## Release Verification
 
 Before publishing a new release, run:
@@ -188,6 +190,7 @@ Guardian is built to stay lightweight for local agent workflows and scheduled sc
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings as if they were new.
 - Deeper live-source checks, installed-tree corroboration, and package-diet usage scans are opt-in.
 - Package-diet review is separate so dependency-bloat analysis does not inflate normal vulnerability-scan output.
+- Claude smoke scans should use Sonnet with low or normal effort; reserve Opus/High for nuanced advisory PR review or complex remediation planning.
 
 Live advisory queries, deep installed-tree checks, and large-repo usage searches still take time. The default workflow is intentionally conservative; deeper checks are available when the situation justifies them, and large public repo scans should prefer one longer paced run over repeated short retries.
 

@@ -24,6 +24,8 @@ Claude Code skill names are namespaced:
 
 ## Smoke Test
 
+Use Sonnet with low or normal effort for smoke scans. Guardian's local runner performs the scan; higher reasoning models are usually not needed just to verify the plugin works.
+
 From an installed Claude plugin cache:
 
 ```bash
@@ -44,6 +46,7 @@ From this plugin directory:
 - Guardian stores local runtime state in `~/.guardian-security-scan` unless `GUARDIAN_STATE_DIR` is set.
 - GitHub tokens are optional. `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token` improve rate limits for deeper advisory checks.
 - Claude Desktop Code uses the Claude Code runtime under the hood, so tool output may mention Claude Code even when the session was launched from the Desktop app.
+- Save Opus/High for complex advisory interpretation, maintainer PR review, or remediation tradeoff decisions.
 
 For installation, usage, and project overview, see the repository README:
 
