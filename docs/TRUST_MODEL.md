@@ -1,6 +1,6 @@
 # Guardian Trust Model
 
-Guardian is a local dependency-risk scanner for Codex. It is designed to help an agent make a better security decision, not to prove that a project is safe.
+Guardian is a local dependency-risk scanner for AI coding agents. It is designed to help an agent make a better security decision, not to prove that a project is safe.
 
 ## What Guardian Trusts
 

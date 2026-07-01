@@ -1,10 +1,10 @@
-# Codex Plugin Usage
+# Plugin Usage
 
-Guardian ships five Codex skills.
+Guardian ships five skills for supported coding-agent plugin hosts.
 
 ## Guardian Project Scan
 
-Use when you want Codex to scan the current repo for package security risk.
+Use when you want the agent to scan the current repo for package security risk.
 
 Example prompt:
 

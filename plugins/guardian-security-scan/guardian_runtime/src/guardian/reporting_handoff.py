@@ -1,4 +1,4 @@
-"""Markdown handoff report rendering for Codex-to-Codex or maintainer review."""
+"""Markdown handoff report rendering for agent-to-agent or maintainer review."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .triage import hygiene_report as build_hygiene_report
 from .util import slugify, utc_now, write_text
 
 
-"""Markdown handoff rendering for humans and downstream Codex sessions."""
+"""Markdown handoff rendering for humans and downstream agent sessions."""
 
 
 def build_handoff_markdown(
@@ -296,9 +296,9 @@ def build_handoff_markdown(
     if vendored_groups and comparison.get("status") == "ok" and comparison.get("classification_changed"):
         lines.append("- Snapshot compare shows interpretation changed separately from raw evidence. That means Guardian may have downgraded findings without the repo necessarily changing its dependency graph.")
     lines.append("")
-    lines.append("## Codex Handoff")
+    lines.append("## Agent Handoff")
     lines.append("")
-    lines.append("Use this report as the starting context for evidence review and only plan remediation if the repo evidence justifies it. Codex should:")
+    lines.append("Use this report as the starting context for evidence review and only plan remediation if the repo evidence justifies it. The agent should:")
     lines.append("")
     lines.append("1. review the flagged package usage locations")
     lines.append("2. confirm whether any remediation is justified at all before considering upgrade targets")

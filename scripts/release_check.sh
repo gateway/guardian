@@ -16,6 +16,14 @@ trap cleanup EXIT
 echo "== plugin manifest =="
 python3 "$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py" "$PLUGIN_ROOT"
 
+echo "== Claude plugin packaging =="
+python3 "$REPO_ROOT/scripts/validate_claude_plugin.py"
+if command -v claude >/dev/null 2>&1; then
+  claude plugin validate "$PLUGIN_ROOT" --strict
+else
+  echo "Claude CLI not found on PATH; skipped claude plugin validate"
+fi
+
 echo "== skills =="
 for skill_dir in "$PLUGIN_ROOT"/skills/*; do
   python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" "$skill_dir"

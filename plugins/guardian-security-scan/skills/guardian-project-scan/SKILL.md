@@ -5,7 +5,7 @@ description: Run Guardian against the current project or repo, compare the new s
 
 # Guardian Project Scan
 
-Use this skill when the user asks to scan a project, verify whether dependency issues were fixed, check package security posture, or create a handoff for another Codex session.
+Use this skill when the user asks to scan a project, verify whether dependency issues were fixed, check package security posture, or create a handoff for another coding-agent session.
 
 ## Runner
 

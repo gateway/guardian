@@ -1,6 +1,6 @@
 # Guardian Repo Scout
 
-Repo Scout is Guardian's workflow for temporary community scans of public GitHub repositories. It is meant for cases where a user wants to spend spare Codex time looking for credible dependency-security issues in upstream projects, then decide whether a maintainer-friendly PR is justified.
+Repo Scout is Guardian's workflow for temporary community scans of public GitHub repositories. It is meant for cases where a user wants to spend spare agent time looking for credible dependency-security issues in upstream projects, then decide whether a maintainer-friendly PR is justified.
 
 ## Operating Rules
 

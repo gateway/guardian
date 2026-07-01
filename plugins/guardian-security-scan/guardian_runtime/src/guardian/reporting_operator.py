@@ -1,4 +1,4 @@
-"""Compact operator JSON report generation for low-token Codex consumption."""
+"""Compact operator JSON report generation for low-token agent consumption."""
 
 from __future__ import annotations
 
@@ -128,4 +128,3 @@ def write_operator_report(
     path = Path(config.reports_dir) / f"operator-{root_slug}-{utc_now().replace(':', '-')}.json"
     write_json(path, payload)
     return path
-

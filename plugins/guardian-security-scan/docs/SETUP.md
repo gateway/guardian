@@ -1,11 +1,11 @@
 # Setup
 
-Guardian is packaged as a Codex plugin with a bundled Python runtime module.
+Guardian is packaged as an installable plugin with a bundled Python runtime module.
 
 ## Requirements
 
 - Python 3.9+
-- Codex local plugin support
+- Codex or Claude Code plugin support
 - Git for repo-root detection
 - Optional: npm, pnpm, and pip for package-manager corroboration
 - Optional: GitHub CLI or a GitHub token for higher GitHub Advisory API limits

@@ -1,8 +1,8 @@
 # Guardian
 
-Guardian is a Codex plugin for read-only dependency risk review. It inventories npm and Python packages, checks exact versions against vulnerability and exploit-intelligence sources, and turns the result into a compact operator summary that explains what matters, what changed, and what action is justified.
+Guardian is an AI coding-agent plugin for read-only dependency risk review. It installs in Codex today and includes Claude Code plugin packaging from the same repository. Guardian inventories npm and Python packages, checks exact versions against vulnerability and exploit-intelligence sources, and turns the result into a compact operator summary that explains what matters, what changed, and what action is justified.
 
-Use Guardian when you want Codex to answer: "Is this project carrying known package risk, and what should we do next?"
+Use Guardian when you want your coding agent to answer: "Is this project carrying known package risk, and what should we do next?"
 
 Guardian is built for AI-assisted development, where packages can accumulate quickly, lockfiles may contain stale nested metadata, and not every scary advisory is a production incident.
 
@@ -12,14 +12,14 @@ Guardian scans project evidence in read-only mode. It does not edit dependency f
 
 `Project evidence -> read-only inventory -> normalized packages -> security intelligence match -> project-context corroboration -> prioritized findings -> operator JSON / Markdown handoff / snapshot comparison`
 
-The design is evidence first, explanation second. Guardian avoids telling Codex to upgrade a package until the package version, advisory match, dependency context, and project evidence support that recommendation.
+The design is evidence first, explanation second. Guardian avoids telling an agent to upgrade a package until the package version, advisory match, dependency context, and project evidence support that recommendation.
 
 ## Why Use Guardian
 
 - Catch known vulnerable, known exploited, malicious, and high exploit-likelihood packages before release or merge.
 - Separate direct runtime risk from transitive, tooling-only, isolated-environment, and vendored-metadata noise.
 - Compare scans over time so you can verify whether a fix actually resolved the finding.
-- Generate handoff artifacts that another Codex session, maintainer, or reviewer can understand.
+- Generate handoff artifacts that another agent session, maintainer, or reviewer can understand.
 - Review package bloat and reduce supply-chain surface where dependencies are unused or replaceable.
 - Prepare focused advisory PRs only when the evidence supports a real dependency fix.
 
@@ -27,7 +27,7 @@ Guardian does not try to create panic or force dependency churn. It gives you en
 
 ## Included Skills
 
-Guardian ships with five Codex skills:
+Guardian ships with five plugin skills:
 
 - `guardian-project-scan`: Use this for normal project security scans, repeat scans, fix verification, and operator handoffs.
 - `guardian-daily-watch`: Use this for lightweight morning automation across known local repos. It detects dependency-file changes, skips unchanged inventory, and compares cached findings with low token/tool overhead.
@@ -78,6 +78,34 @@ codex plugin add guardian-security-scan@guardian
 
 Start a new Codex thread after installing so the new skills are loaded.
 
+## Install In Claude Code
+
+Guardian also ships a Claude Code marketplace manifest at `.claude-plugin/marketplace.json` and a Claude plugin manifest at `plugins/guardian-security-scan/.claude-plugin/plugin.json`.
+
+Install the published marketplace:
+
+```bash
+claude plugin marketplace add gateway/guardian
+claude plugin install guardian-security-scan@guardian
+```
+
+Install from a local checkout while developing:
+
+```bash
+git clone https://github.com/gateway/guardian.git
+claude plugin marketplace add ./guardian
+claude plugin install guardian-security-scan@guardian
+```
+
+Guardian's Claude skills are namespaced, for example:
+
+```text
+/guardian-security-scan:guardian-project-scan
+/guardian-security-scan:guardian-repo-scout
+```
+
+For Claude-specific packaging notes and validation commands, read [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
+
 ## Release Verification
 
 Before publishing a new release, run:
@@ -86,7 +114,7 @@ Before publishing a new release, run:
 ./scripts/release_check.sh
 ```
 
-That gate validates the Codex plugin manifest, skill metadata, Python source compilation, Guardian's internal regression corpus, fixture scans, and a local Codex marketplace install smoke test.
+That gate validates the Codex plugin manifest, Claude plugin packaging, skill metadata, Python source compilation, Guardian's internal regression corpus, fixture scans, and local marketplace/cache smoke tests. If the Claude Code CLI is available on `PATH`, it also runs Anthropic's `claude plugin validate` command.
 
 ## Intelligence Sources
 
@@ -134,10 +162,10 @@ For the recommended public-repo scouting workflow, see [`docs/REPO_SCOUT.md`](do
 
 ## Efficient By Default
 
-Guardian is built to stay lightweight for local Codex workflows and scheduled scans:
+Guardian is built to stay lightweight for local agent workflows and scheduled scans:
 
 - The scanner runtime uses the Python standard library only. Guardian does not install third-party Python packages to run.
-- Normal reports are compact so Codex can read an operator summary instead of spending tokens on raw lockfiles or full advisory payloads.
+- Normal reports are compact so the agent can read an operator summary instead of spending tokens on raw lockfiles or full advisory payloads.
 - `daily-watch` avoids re-inventorying unchanged repos by comparing dependency-file fingerprints before scan work starts.
 - Live advisory refresh for large multi-repo watches is explicit with `--refresh-advisories` so scheduled automation stays predictable.
 - Repo Scout preflights public repos and automatically uses a longer large-repo budget when dependency-file or package counts are high.
@@ -165,7 +193,7 @@ Guardian is intentionally conservative about vendored nested lockfiles, stale me
 Requirements:
 
 - Python 3.9+ available as `/usr/bin/python3` or `python3`.
-- Codex with local plugin support.
+- Codex with local plugin support, Claude Code with plugin support, or direct CLI usage.
 - Git for repo-root detection.
 - npm, pnpm, or pip only when you want package-manager corroboration or audit checks.
 

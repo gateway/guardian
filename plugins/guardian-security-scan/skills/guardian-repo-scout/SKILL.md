@@ -1,6 +1,6 @@
 ---
 name: guardian-repo-scout
-description: Ephemerally clone public GitHub repos, run budgeted Guardian scans with isolated state, surface high-signal dependency issues, and clean up clones/state. Use when the user wants to spend spare Codex time reviewing upstream projects without ingesting them into the normal Guardian database.
+description: Ephemerally clone public GitHub repos, run budgeted Guardian scans with isolated state, surface high-signal dependency issues, and clean up clones/state. Use when the user wants to spend spare agent time reviewing upstream projects without ingesting them into the normal Guardian database.
 ---
 
 # Guardian Repo Scout

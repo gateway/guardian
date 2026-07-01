@@ -1,0 +1,22 @@
+{
+  "name": "guardian-security-scan",
+  "displayName": "Guardian Security Scan",
+  "description": "Guardian scans npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
+  "author": {
+    "name": "Dreaming Computers",
+    "url": "https://github.com/gateway"
+  },
+  "homepage": "https://github.com/gateway/guardian",
+  "repository": "https://github.com/gateway/guardian",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "dependency-scan",
+    "supply-chain",
+    "vulnerability",
+    "npm",
+    "pypi",
+    "claude-code"
+  ],
+  "skills": "./skills/"
+}
