@@ -97,6 +97,13 @@ claude plugin marketplace add ./guardian
 claude plugin install guardian-security-scan@guardian
 ```
 
+If you are already inside the Guardian checkout, use the exact local source form Claude expects:
+
+```bash
+claude plugin marketplace add ./
+claude plugin install guardian-security-scan@guardian
+```
+
 Guardian's Claude skills are namespaced, for example:
 
 ```text
@@ -106,6 +113,14 @@ Guardian's Claude skills are namespaced, for example:
 
 For Claude-specific packaging notes and validation commands, read [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
 
+Quick install smoke test:
+
+```bash
+GUARDIAN_PLUGIN_BIN="$(find "$HOME/.claude/plugins/cache/guardian/guardian-security-scan" -path '*/scripts/guardian' -type f -print | sort | tail -n 1)"
+GUARDIAN_SMOKE_STATE="$(mktemp -d "${TMPDIR:-/tmp}/guardian-smoke.XXXXXX")"
+GUARDIAN_STATE_DIR="$GUARDIAN_SMOKE_STATE" "$GUARDIAN_PLUGIN_BIN" report summary --json
+```
+
 ## Release Verification
 
 Before publishing a new release, run:
@@ -114,7 +129,7 @@ Before publishing a new release, run:
 ./scripts/release_check.sh
 ```
 
-That gate validates the Codex plugin manifest, Claude plugin packaging, skill metadata, Python source compilation, Guardian's internal regression corpus, fixture scans, and local marketplace/cache smoke tests. If the Claude Code CLI is available on `PATH`, it also runs Anthropic's `claude plugin validate` command.
+That gate validates the Codex plugin manifest, Claude plugin packaging, skill metadata, Python source compilation, Guardian's internal regression corpus, fixture scans, and local marketplace/cache smoke tests. It uses `claude` from `PATH` when available, otherwise it looks for the Claude Code runtime bundled inside Claude Desktop at `~/Library/Application Support/Claude/claude-code/*/claude.app/Contents/MacOS/claude`.
 
 ## Intelligence Sources
 

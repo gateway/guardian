@@ -35,6 +35,7 @@ echo "== Claude plugin packaging =="
 python3 "$REPO_ROOT/scripts/validate_claude_plugin.py"
 CLAUDE_BIN_FOUND="$(find_claude_bin || true)"
 if [[ -n "$CLAUDE_BIN_FOUND" ]]; then
+  echo "Using Claude Code validator: $CLAUDE_BIN_FOUND"
   "$CLAUDE_BIN_FOUND" plugin validate "$PLUGIN_ROOT" --strict
   "$CLAUDE_BIN_FOUND" plugin validate "$REPO_ROOT" --strict
 else

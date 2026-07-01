@@ -36,6 +36,7 @@ The runner writes Guardian state to `~/.guardian-security-scan` by default. Over
 
 - Do not modify the scanned project.
 - Do not treat vendored nested lockfiles as direct runtime compromise.
+- In Claude Desktop Code, the plugin runs through the Claude Code runtime. Do not say Desktop was unverified solely because the runner was invoked through Bash or Claude Code; distinguish UI launch surface from runtime implementation.
 - Use snapshot compare fields for fixed/new/unchanged statements.
 - Include advisory links when surfacing a concrete issue.
 - Separate runtime, transitive, build/test, isolated environment, and vendored metadata findings.
