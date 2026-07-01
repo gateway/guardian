@@ -30,6 +30,7 @@ from guardian.upstream_context import (  # noqa: E402
 )
 from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
+from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
 
 
 def run_guardian(
@@ -278,6 +279,38 @@ def assert_repo_scout_high_signal_filter() -> None:
         raise AssertionError("known-exploited findings should remain high signal")
 
 
+def assert_reporting_advisory_and_evidence_helpers() -> None:
+    """Reporting helpers should structure link-only advisories and evidence caveats."""
+
+    package = {
+        "package_name": "next",
+        "version": "16.2.4",
+        "highest_severity": "high",
+        "environment_label": "runtime",
+        "direct_dependency": True,
+        "manifest_scope": "runtime",
+        "manifest_paths": ["frontend/package.json"],
+        "advisory_sources": [],
+        "advisory_links": [
+            "https://github.com/advisories/GHSA-8h8q-6873-q5fj",
+            "https://api.first.org/data/v1/epss?cve=CVE-2026-41305",
+        ],
+        "occurrences": [
+            {"source_type": "npm-manifest"},
+            {"source_type": "npm-lockfile"},
+        ],
+    }
+    details = advisory_details(package)
+    detail_ids = [item.get("id") for item in details]
+    if "GHSA-8h8q-6873-q5fj" not in detail_ids or "CVE-2026-41305" not in detail_ids:
+        raise AssertionError(f"link-only advisory details were not normalized: {details}")
+    context = package_evidence_context(package)
+    if context["label"] != "Manifest + lockfile; installed tree not present":
+        raise AssertionError(f"runtime evidence caveat was not preserved: {context}")
+    if context["installed_tree_present"]:
+        raise AssertionError(f"installed tree should not be marked present for lockfile-only evidence: {context}")
+
+
 def main() -> int:
     """Copy fixtures to temp space and run the deterministic release assertions."""
 
@@ -294,6 +327,7 @@ def main() -> int:
         assert_upstream_reporting_policy_helpers(tmp)
         assert_osv_explicit_version_guard()
         assert_repo_scout_high_signal_filter()
+        assert_reporting_advisory_and_evidence_helpers()
     print("fixture tests passed")
     return 0
 

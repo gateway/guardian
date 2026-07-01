@@ -64,11 +64,17 @@ def compact_package(item: dict) -> dict:
         "confidence": confidence_label,
         "environment": item.get("environment_label"),
         "role": item.get("role_label"),
-        "reason": (item.get("issue_summaries") or [None])[0],
+        "reason": item.get("reason") or (item.get("issue_summaries") or [None])[0],
         "target": None if low_action else (item.get("recommended_clean_version") or item.get("first_fixed_version")),
-        "recommended_action": "Review parent chain / no direct app action." if low_action else ((item.get("notes") or [None])[0]),
+        "recommended_action": (
+            "Review parent chain / no direct app action."
+            if low_action
+            else item.get("recommended_action") or (item.get("notes") or [None])[0]
+        ),
         "advisories": item.get("advisory_sources", [])[:4],
         "links": item.get("advisory_links", [])[:4],
+        "advisory_details": item.get("advisory_details", [])[:4],
+        "evidence_context": item.get("evidence_context"),
     }
 
 
@@ -113,6 +119,9 @@ def print_human_summary(payload: dict) -> None:
             )
             if item.get("recommended_action"):
                 print(f"    action: {item['recommended_action']}")
+            evidence_context = item.get("evidence_context") or {}
+            if evidence_context.get("label"):
+                print(f"    evidence: {evidence_context['label']}")
             if item.get("links"):
                 print(f"    link: {item['links'][0]}")
 

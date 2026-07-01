@@ -5,6 +5,7 @@ from __future__ import annotations
 from .config import GuardianConfig
 from .db import Database
 from .evidence import evidence_summary
+from .reporting_common import advisory_details, package_evidence_context
 from .util import utc_now
 
 
@@ -31,6 +32,8 @@ def build_compact_operator_view(
                 "role_label": package.get("role_label"),
                 "highest_severity": package.get("highest_severity"),
                 "advisory_links": package.get("advisory_links", [])[:2],
+                "advisory_details": advisory_details(package, limit=2),
+                "evidence_context": package_evidence_context(package),
             }
         )
     return {

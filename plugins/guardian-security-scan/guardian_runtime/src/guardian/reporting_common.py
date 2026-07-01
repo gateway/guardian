@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import subprocess
 
 from .db import Database
@@ -12,6 +13,206 @@ from .triage_signals import advisory_link_sort_key
 
 
 """Shared report helpers for corroboration, grouping, and operator wording."""
+
+_ADVISORY_ID_RE = re.compile(
+    r"\b(?:GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}|CVE-\d{4}-\d{4,})\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_advisory_id(value: str | None) -> str | None:
+    """Extract and normalize a CVE/GHSA identifier from free text or a URL."""
+
+    if not value:
+        return None
+    match = _ADVISORY_ID_RE.search(value)
+    if not match:
+        return None
+    raw = match.group(0)
+    if raw.upper().startswith("CVE-"):
+        return raw.upper()
+    if raw.upper().startswith("GHSA-"):
+        return f"GHSA-{raw[5:].lower()}"
+    return raw
+
+
+def _advisory_source_from_url(url: str | None) -> str | None:
+    """Return a human-facing source label for a known advisory URL."""
+
+    if not url:
+        return None
+    lower = url.lower()
+    if "github.com" in lower:
+        return "GitHub Advisory"
+    if "api.first.org" in lower or "first.org" in lower:
+        return "FIRST EPSS"
+    if "nvd.nist.gov" in lower:
+        return "NVD"
+    if "osv.dev" in lower:
+        return "OSV"
+    if "gitlab.com" in lower:
+        return "GitLab Advisory"
+    return None
+
+
+def _advisory_source_from_id(advisory_id: str | None) -> str | None:
+    """Infer the source family from a normalized advisory identifier."""
+
+    if not advisory_id:
+        return None
+    if advisory_id.startswith("GHSA-"):
+        return "GitHub Advisory"
+    if advisory_id.startswith("CVE-"):
+        return "CVE"
+    return None
+
+
+def _unique_strings(values: list | tuple | set | None) -> list[str]:
+    """Keep non-empty strings in first-seen order."""
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values or []:
+        if not isinstance(value, str) or not value:
+            continue
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
+
+
+def advisory_details(package: dict, *, limit: int = 4) -> list[dict]:
+    """Normalize advisory IDs, URLs, and available database details into one shape.
+
+    Live GHSA enrichment is optional, so a package may only carry advisory links.
+    This helper still returns structured rows so agents do not incorrectly treat
+    populated links plus empty rich details as "missing advisory evidence."
+    """
+
+    details_by_key: dict[str, dict] = {}
+    ordered_keys: list[str] = []
+
+    def remember(key: str, row: dict) -> None:
+        if key not in details_by_key:
+            details_by_key[key] = row
+            ordered_keys.append(key)
+            return
+        existing = details_by_key[key]
+        for field, value in row.items():
+            if value and not existing.get(field):
+                existing[field] = value
+
+    assessment = package.get("current_assessment") or {}
+    for finding in assessment.get("findings") or []:
+        if not isinstance(finding, dict):
+            continue
+        advisory_id = _normalize_advisory_id(str(finding.get("id") or ""))
+        if not advisory_id:
+            continue
+        remember(
+            advisory_id,
+            {
+                "id": advisory_id,
+                "url": None,
+                "source": finding.get("source") or _advisory_source_from_id(advisory_id),
+                "severity": finding.get("severity") or package.get("highest_severity"),
+                "summary": finding.get("summary"),
+                "fixed_versions": finding.get("fixed_versions") or [],
+            },
+        )
+
+    links = _unique_strings(package.get("advisory_links"))
+    links_by_id: dict[str, str] = {}
+    for link in links:
+        advisory_id = _normalize_advisory_id(link)
+        if advisory_id and advisory_id not in links_by_id:
+            links_by_id[advisory_id] = link
+
+    for source in _unique_strings(package.get("advisory_sources")):
+        advisory_id = _normalize_advisory_id(source)
+        key = advisory_id or source
+        remember(
+            key,
+            {
+                "id": advisory_id or source,
+                "url": links_by_id.get(advisory_id or ""),
+                "source": _advisory_source_from_id(advisory_id),
+                "severity": package.get("highest_severity"),
+                "summary": None,
+                "fixed_versions": [],
+            },
+        )
+
+    for link in links:
+        advisory_id = _normalize_advisory_id(link)
+        key = advisory_id or link
+        remember(
+            key,
+            {
+                "id": advisory_id,
+                "url": link,
+                "source": _advisory_source_from_url(link) or _advisory_source_from_id(advisory_id),
+                "severity": package.get("highest_severity"),
+                "summary": None,
+                "fixed_versions": [],
+            },
+        )
+
+    return [details_by_key[key] for key in ordered_keys[:limit]]
+
+
+def package_evidence_context(package: dict) -> dict:
+    """Describe how strongly the repo evidence ties a finding to this project."""
+
+    occurrences = [item for item in package.get("occurrences") or [] if isinstance(item, dict)]
+    source_types = sorted({item.get("source_type") for item in occurrences if item.get("source_type")})
+    evidence_kinds = {item.get("evidence_kind") for item in occurrences if item.get("evidence_kind")}
+    has_manifest = "manifest" in evidence_kinds or any("manifest" in item for item in source_types)
+    has_lockfile = "lockfile" in evidence_kinds or any("lockfile" in item for item in source_types)
+    has_installed = "installed" in evidence_kinds or any(
+        item in {"npm-node_modules", "python-installed-metadata"} for item in source_types
+    )
+    direct_dependency = bool(package.get("direct_dependency"))
+    environment = package.get("environment_label")
+    manifest_paths = _unique_strings(package.get("manifest_paths"))
+
+    if environment == "runtime" and direct_dependency and has_lockfile and not has_installed:
+        label = "Manifest + lockfile; installed tree not present"
+        summary = (
+            "Direct runtime dependency is corroborated by manifest/lockfile evidence, "
+            "but no installed node_modules/site-packages metadata was scanned."
+        )
+    elif environment == "runtime" and direct_dependency:
+        label = "Runtime-linked direct dependency"
+        summary = "Direct runtime dependency evidence is present for this package."
+    elif environment == "runtime":
+        label = "Runtime-linked"
+        summary = "Runtime usage or dependency-path evidence ties this package to the project."
+    elif environment == "vendored-lockfile":
+        label = "Vendored metadata only"
+        summary = "Finding came from nested vendored metadata and needs corroboration before direct app remediation."
+    elif environment == "lockfile-only":
+        label = "Lockfile-only"
+        summary = "Finding is present in lockfile evidence but is not currently corroborated by installed-tree metadata or code usage."
+    elif environment == "isolated-env":
+        label = "Isolated environment"
+        summary = "Finding is scoped to an isolated virtual environment or tooling environment."
+    else:
+        label = environment or "Unknown evidence context"
+        summary = "Guardian found package evidence, but no stronger runtime context label is available."
+
+    return {
+        "label": label,
+        "summary": summary,
+        "source_types": source_types,
+        "direct_dependency": direct_dependency,
+        "manifest_scope": package.get("manifest_scope"),
+        "manifest_paths": manifest_paths[:4],
+        "installed_tree_present": has_installed,
+        "lockfile_present": has_lockfile,
+        "manifest_present": has_manifest,
+    }
 
 
 def operator_recommendations(packages: list[dict]) -> list[str]:
@@ -194,4 +395,3 @@ def group_vendored_packages(packages: list[dict]) -> list[dict]:
         results.append(group)
     results.sort(key=lambda item: (-len(item["packages"]), item["source_detail"] or item["summary"]))
     return results
-

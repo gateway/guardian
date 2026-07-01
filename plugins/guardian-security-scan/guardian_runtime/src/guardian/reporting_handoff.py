@@ -8,12 +8,14 @@ from .config import GuardianConfig
 from .db import Database
 from .evidence import evidence_summary
 from .reporting_common import (
+    advisory_details,
     audit_line,
     group_vendored_packages,
     low_action_installed_only,
     matching_repo_evidence,
     npm_audit_summary,
     operator_recommendations,
+    package_evidence_context,
 )
 from .reporting_core import triage_report
 from .reporting_snapshots import compare_triage_snapshots
@@ -118,8 +120,18 @@ def build_handoff_markdown(
             lines.append("- Advisory links:")
             for link in package["advisory_links"][:4]:
                 lines.append(f"  - {link}")
+        details = advisory_details(package, limit=4)
+        if details:
+            lines.append("- Advisory evidence:")
+            for detail in details:
+                label = detail.get("id") or detail.get("source") or "advisory"
+                source = f" ({detail['source']})" if detail.get("source") else ""
+                url = f": {detail['url']}" if detail.get("url") else ""
+                lines.append(f"  - `{label}`{source}{url}")
         lines.append(f"- Role: `{package['role_label']}`")
         lines.append(f"- Environment: `{package['environment_label']}`")
+        context = package_evidence_context(package)
+        lines.append(f"- Evidence context: {context['summary']}")
         if package.get("root_cause"):
             lines.append(f"- Direct parent / source: {package['root_cause']['summary']}")
         lines.append(

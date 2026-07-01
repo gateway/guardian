@@ -8,12 +8,14 @@ from .config import GuardianConfig
 from .db import Database
 from .evidence import evidence_summary
 from .reporting_common import (
+    advisory_details,
     audit_payload,
     group_vendored_packages,
     low_action_installed_only,
     matching_repo_evidence,
     npm_audit_summary,
     operator_recommendations,
+    package_evidence_context,
 )
 from .reporting_core import triage_report
 from .reporting_snapshots import compare_triage_snapshots
@@ -76,6 +78,8 @@ def build_operator_view(
                 "reason": (package.get("issue_summaries") or [None])[0],
                 "advisory_ids": package.get("advisory_sources", [])[:4],
                 "advisory_links": package.get("advisory_links", [])[:4],
+                "advisory_details": advisory_details(package, limit=4),
+                "evidence_context": package_evidence_context(package),
                 "recommended_action": (
                     "Review parent chain / no direct app action."
                     if package.get("environment_label") == "vendored-lockfile" and package.get("usage_hit_count", 0) == 0
