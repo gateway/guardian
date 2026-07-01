@@ -1,5 +1,6 @@
 {
   "name": "guardian-security-scan",
+  "version": "1.0.0",
   "displayName": "Guardian Security Scan",
   "description": "Guardian scans npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
   "author": {

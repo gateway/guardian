@@ -8,6 +8,21 @@ CODEX_HOME_TMP="$(mktemp -d "${TMPDIR:-/tmp}/guardian-codex-release.XXXXXX")"
 CODEX_HOME_RELEASE="$CODEX_HOME_TMP/codex-home"
 mkdir -p "$CODEX_HOME_RELEASE"
 
+find_claude_bin() {
+  if [[ -n "${CLAUDE_BIN:-}" && -x "$CLAUDE_BIN" ]]; then
+    printf '%s\n' "$CLAUDE_BIN"
+    return 0
+  fi
+  if command -v claude >/dev/null 2>&1; then
+    command -v claude
+    return 0
+  fi
+  local claude_support="$HOME/Library/Application Support/Claude/claude-code"
+  if [[ -d "$claude_support" ]]; then
+    find "$claude_support" -path '*/claude.app/Contents/MacOS/claude' -type f -perm -111 | sort -r | head -n 1
+  fi
+}
+
 cleanup() {
   rm -rf "$CODEX_HOME_TMP"
 }
@@ -18,10 +33,12 @@ python3 "$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py" 
 
 echo "== Claude plugin packaging =="
 python3 "$REPO_ROOT/scripts/validate_claude_plugin.py"
-if command -v claude >/dev/null 2>&1; then
-  claude plugin validate "$PLUGIN_ROOT" --strict
+CLAUDE_BIN_FOUND="$(find_claude_bin || true)"
+if [[ -n "$CLAUDE_BIN_FOUND" ]]; then
+  "$CLAUDE_BIN_FOUND" plugin validate "$PLUGIN_ROOT" --strict
+  "$CLAUDE_BIN_FOUND" plugin validate "$REPO_ROOT" --strict
 else
-  echo "Claude CLI not found on PATH; skipped claude plugin validate"
+  echo "Claude Code CLI not found; skipped claude plugin validate"
 fi
 
 echo "== skills =="
