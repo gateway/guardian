@@ -90,115 +90,30 @@ Default live-source policy is conservative:
 
 This does not make scans instant. It makes long scans intentional, bounded, and less likely to hit avoidable rate limits.
 
-## First Large-Repo Test
+## Interpreting Scout Results
 
-Repository:
+A clean Repo Scout pass means Guardian did not find a configured-source match that looks like an actionable dependency issue in the package evidence it scanned. It is not proof that the upstream project has no unknown zero-days or no application-level security bugs.
 
-```text
-openclaw/openclaw
-```
+High-severity advisory matches still need context before upstream reporting:
 
-Fast standard scout pass before large-repo preflight existed:
+- Prefer direct runtime dependencies over example, docs, fixture, generated, or CI-only lockfiles.
+- Check whether the vulnerable version appears in a root manifest, workspace package, lockfile, installed tree, or only in vendored metadata.
+- Verify whether the active project already pins an override or parent dependency that resolves to a patched version.
+- Search upstream issues and PRs for the same package/advisory before opening anything new.
+- Follow the project's contribution and security reporting policy.
 
-- Runtime: 26.7 seconds.
-- Unique packages: 1,519.
-- Evidence rows: 3,428.
-- OSV records queried: 1,519.
-- GitLab Advisory Database records read: 1,487.
-- GHSA: not requested.
-- High-signal PR candidates: 0.
-- Temporary clones/state: deleted.
+When a finding is real but broad, ambiguous, already tracked, or tied to private disclosure rules, prefer an issue, private advisory, or no duplicate report over a low-quality PR.
 
-GHSA-enabled standard scout pass before large-repo preflight existed:
+## Regression Expectations
 
-- Runtime: 41.0 seconds.
-- Unique packages: 1,519.
-- OSV records queried: 1,519.
-- GHSA records queried: 80.
-- GitLab Advisory Database records read: 1,487.
-- High-signal PR candidates: 0.
-- Temporary clones/state: deleted.
+Repo Scout should keep these behaviors stable:
 
-Decision:
-
-```text
-No maintainer PR is justified from this scan. Guardian did not find a configured-source match that looks like an actionable dependency issue in OpenClaw.
-```
-
-This is not proof that the repo is safe from unknown zero-days. It means the package versions Guardian saw did not match the configured advisory and exploit-intelligence sources used in the run.
-
-## Second Batch Test
-
-Repositories:
-
-```text
-n8n-io/n8n
-langgenius/dify
-firecrawl/firecrawl
-```
-
-Standard scout pass:
-
-- Runtime: 319.5 seconds.
-- Temporary clones/state: deleted.
-- `n8n-io/n8n`: 3,972 unique packages; initial pass hit budget before snapshot, then GHSA escalation completed cleanly.
-- `langgenius/dify`: 2,358 unique packages; completed.
-- `firecrawl/firecrawl`: 2,274 unique packages; completed.
-
-GHSA escalation pass:
-
-- Runtime: 306.0 seconds.
-- GHSA target count: 120 per repo.
-- Temporary clones/state were kept only for evidence extraction, then deleted.
-- All three repos completed without scan-budget errors.
-
-Candidate quality after evidence review:
-
-- `langgenius/dify` produced the strongest PR candidates.
-- `langsmith@0.8.5` is a direct provider dependency in `api/providers/trace/trace-langsmith/pyproject.toml`; OSV/GHSA report `GHSA-f4xh-w4cj-qxq8`, fixed by `0.8.18`. Guardian rated this `Act Now`.
-- `bleach@6.3.0` is present in `api/uv.lock` and the API project allows `bleach>=6.3.0,<7.0.0`; OSV/GHSA report medium/low advisories fixed by `6.4.0`. Guardian rated this `Fix This Week`.
-- `nltk@3.9.4` is present in `api/uv.lock` and tied to Dify's `tools` optional dependency group; OSV/GHSA report `GHSA-p4gq-832x-fm9v`, but Guardian could not derive a clean fixed version because latest was still `3.9.4` at check time. This is an advisory/escalation note, not an automatic upgrade PR.
-- `couchbase@4.6.0` appeared in `api/uv.lock` for Dify's Couchbase vector DB extra, but Guardian classified the exact package check as lower priority because no clean fixed version was derived automatically.
-- `firecrawl/firecrawl` initially surfaced `axios@1.15.2` and `ws@8.18.3`, but evidence showed both came from `examples/scrape_and_analyze_airbnb_data_e2b/package-lock.json`. Active app/package manifests had newer `axios` and `ws` versions that exact package checks did not flag. Do not open a PR from the initial Firecrawl scout output without a narrower maintainer-use-case review.
-- `n8n-io/n8n` produced several high-severity candidates, but evidence showed a mixed picture: some vulnerable versions came from `.github/scripts/pnpm-lock.yaml`, while root/package manifests already pin or override some packages to newer versions. This needs focused maintainer-aware validation before any PR.
-
-Decision:
-
-```text
-Best immediate PR candidate: langgenius/dify for langsmith@0.8.5 -> 0.8.18, with bleach@6.3.0 -> 6.4.0 as a secondary candidate if tests confirm compatibility.
-```
-
-The batch also proved that broad GHSA escalation over large repos is workable but expensive. Prefer standard scout first, then exact package verification for candidate packages before rerunning a wide GHSA pass.
-
-## Large-Repo Regression Test
-
-Repository:
-
-```text
-continuedev/continue
-```
-
-Earlier behavior:
-
-- Standard GHSA-enabled scout exceeded the scan budget during advisory refresh.
-- The scan had already cloned and inventoried the repo, but enrichment had too much package surface for the old budget.
-
-Verified behavior after large-repo handling:
-
-- Runtime: 246.3 seconds.
-- Dependency files: 46.
-- Unique package versions: 4,460.
-- Evidence rows: 11,111.
-- Large-repo mode: enabled.
-- Effective budget: 900 seconds.
-- Requested GHSA target cap: 60.
-- Effective GHSA target cap: 25.
-- GHSA worker cap: 2.
-- API request spacing: 0.25 seconds.
-- Status: completed.
-- High-signal candidates: 4.
-
-This test verifies that a huge repo can finish as one paced scan instead of failing because the initial budget was too small.
+- Large repos complete as one paced scan when the configured budget is sufficient.
+- Temporary clones and temporary Guardian state are removed by default.
+- GHSA exact-match checks stay capped and paced.
+- High-signal findings include reporting-path guidance.
+- Findings in examples, docs, fixtures, vendored metadata, generated lockfiles, or stale nested lockfiles do not outrank stronger runtime evidence.
+- Scout output is useful enough to decide whether `guardian-advisory-pr` should be used next.
 
 ## What We Should Improve
 
