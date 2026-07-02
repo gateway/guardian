@@ -106,9 +106,15 @@ For Claude-specific install and validation notes, see [`docs/CLAUDE_CODE.md`](do
 
 ## Test Your First Repo
 
-After installing, open Codex or Claude in a project you want to scan and use this prompt:
+After installing, open Codex or Claude in a project you want to scan and use one of these prompts:
 
-> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+Codex:
+
+> $guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
 
 A good first scan should report:
 
@@ -128,21 +134,35 @@ Use Sonnet with low or normal effort for routine scan summaries. Guardian does t
 
 ## Skills And When To Use Them
 
+Skill calls are slightly different by harness:
+
+- Codex: use `$guardian-security-scan:skill-name`.
+- Claude Code: use `/guardian-security-scan:skill-name`.
+- Natural language usually works too, but the prefixed form is the clearest copy/paste option.
+
 ### `guardian-project-scan`
 
 Use this for normal project security scans, repeat scans, fix verification, and handoff reports.
 
-Copy/paste prompt:
+Codex:
 
-> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Compare this scan with the previous scan if one exists, then summarize the current posture, top actionable findings, advisory links, evidence context, and suggested next steps.
+> $guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Compare this scan with the previous scan if one exists, then summarize the current posture, top actionable findings, advisory links, evidence context, and suggested next steps.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Compare this scan with the previous scan if one exists, then summarize the current posture, top actionable findings, advisory links, evidence context, and suggested next steps.
 
 ### `guardian-daily-watch`
 
 Use this for lightweight morning automation across known local repos. It fingerprints dependency files, skips unchanged inventory, and can refresh advisory data for known package inventories.
 
-Copy/paste prompt:
+Codex:
 
-> Use Guardian daily watch to check my known local repos. Keep it lightweight, skip unchanged dependency inventories where possible, refresh advisory data for known packages if available, and summarize only new, resolved, changed, or high-priority findings.
+> $guardian-security-scan:guardian-daily-watch Check my known local repos. Keep it lightweight, skip unchanged dependency inventories where possible, refresh advisory data for known packages if available, and summarize only new, resolved, changed, or high-priority findings.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-daily-watch Check my known local repos. Keep it lightweight, skip unchanged dependency inventories where possible, refresh advisory data for known packages if available, and summarize only new, resolved, changed, or high-priority findings.
 
 See [`docs/AUTOMATION.md`](docs/AUTOMATION.md) for scheduled scan strategy.
 
@@ -150,9 +170,13 @@ See [`docs/AUTOMATION.md`](docs/AUTOMATION.md) for scheduled scan strategy.
 
 Use this for temporary scans of public GitHub repos you do not own. Repo Scout uses disposable clones and temporary Guardian state by default, then reports high-signal findings and the recommended reporting path.
 
-Copy/paste prompt:
+Codex:
 
-> Use Guardian repo scout to scan `owner/name` with temporary clones and temporary Guardian state. Do not install dependencies or run project code. Show only high-signal dependency findings, include advisory links and reporting-path guidance, and clean up temporary files when finished.
+> $guardian-security-scan:guardian-repo-scout Scan `owner/name` with temporary clones and temporary Guardian state. Do not install dependencies or run project code. Show only high-signal dependency findings, include advisory links and reporting-path guidance, and clean up temporary files when finished.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-repo-scout Scan `owner/name` with temporary clones and temporary Guardian state. Do not install dependencies or run project code. Show only high-signal dependency findings, include advisory links and reporting-path guidance, and clean up temporary files when finished.
 
 See [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md) for the public-repo scouting workflow.
 
@@ -160,17 +184,25 @@ See [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md) for the public-repo scouting work
 
 Use this for dependency bloat, unused packages, and "could simple local code replace this dependency?" review. This is separate from vulnerability scanning.
 
-Copy/paste prompt:
+Codex:
 
-> Use Guardian package diet on this repo. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
+> $guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
 
 ### `guardian-advisory-pr`
 
 Use this after Guardian confirms an actionable finding and you want a maintainer-friendly PR with advisory links, dependency evidence, fix rationale, and validation notes.
 
-Copy/paste prompt:
+Codex:
 
-> Use Guardian Advisory PR for this confirmed finding. Prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
+> $guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
 
 ## Automation
 

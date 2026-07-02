@@ -12,21 +12,22 @@ Guardian scans npm and Python project dependency evidence in read-only mode, mat
 - `guardian-package-diet`: dependency bloat and unused-package review.
 - `guardian-advisory-pr`: maintainer-friendly PR preparation for confirmed actionable findings.
 
-Claude Code skill names are namespaced:
+Skill calls are namespaced:
 
-```text
-/guardian-security-scan:guardian-project-scan
-/guardian-security-scan:guardian-daily-watch
-/guardian-security-scan:guardian-repo-scout
-/guardian-security-scan:guardian-package-diet
-/guardian-security-scan:guardian-advisory-pr
-```
+- Codex: `$guardian-security-scan:guardian-project-scan`
+- Claude Code: `/guardian-security-scan:guardian-project-scan`
 
 ## Test Your First Repo
 
-After installing, open Claude Code or Codex in a project you want to scan and ask:
+After installing, open Codex or Claude Code in a project you want to scan and use one of these prompts:
 
-> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+Codex:
+
+> $guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-project-scan Scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
 
 From this plugin directory, you can also run a direct CLI scan:
 
