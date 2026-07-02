@@ -2,11 +2,7 @@
 
 Guardian is a local-first security plugin for AI coding agents. It helps Codex and Claude Code scan npm and Python projects for known package risk, explain what matters, and avoid unnecessary dependency churn.
 
-Use Guardian when you want your agent to answer:
-
-```text
-Is this project carrying known dependency risk, what changed since the last scan, and what should we do next?
-```
+Use Guardian when you want your agent to answer: "Is this project carrying known dependency risk, what changed since the last scan, and what should we do next?"
 
 Guardian is built for modern AI-assisted development, where projects can accumulate dependencies quickly and not every scary advisory is a real production issue.
 
