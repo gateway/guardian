@@ -10,6 +10,47 @@ import re
 from .records import package_record
 
 
+def parse_requirements_manifest(path: Path, root: Path) -> list[dict]:
+    """Parse exact pins from pip requirements files without resolving ranges.
+
+    Requirements files often contain lower bounds (`pkg>=1.2`) or unpinned
+    package names. Treating those as installed versions would create false
+    positives, so Guardian only emits package evidence for exact `==` pins.
+    """
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception:
+        return []
+    records: list[dict] = []
+    scope = _requirements_scope(path)
+    for line_number, raw_line in enumerate(lines, start=1):
+        requirement = _clean_requirements_line(raw_line)
+        if not requirement:
+            continue
+        parsed = _exact_python_requirement(requirement)
+        if parsed is None:
+            continue
+        name, version = parsed
+        records.append(
+            package_record(
+                root=root,
+                ecosystem="pypi",
+                package_name=name,
+                version=version,
+                source_file=path,
+                source_type="requirements-manifest",
+                package_manager="pip",
+                confidence="medium",
+                direct_dependency=True,
+                install_scope=scope,
+                evidence_kind="manifest",
+                raw_metadata={"raw_specifier": requirement, "line": line_number},
+            )
+        )
+    return records
+
+
 def parse_uv_lock(path: Path, root: Path) -> list[dict]:
     """Parse exact package versions from uv.lock without requiring TOML packages."""
 
@@ -191,6 +232,37 @@ def _is_vendored_python_metadata(path: Path) -> bool:
         rel = parts[index + 1 :]
         return "_vendor" in rel or "vendor" in rel or len(rel) > 2
     return False
+
+
+def _requirements_scope(path: Path) -> str:
+    """Infer whether a requirements file is runtime or test/dev scoped."""
+
+    lower_parts = {part.lower() for part in path.parts}
+    lower_name = path.name.lower()
+    if lower_parts.intersection({"test", "tests", "tests-unit", "testing", "docs", "examples"}):
+        return "dev"
+    if any(marker in lower_name for marker in ("dev", "test", "lint", "type", "doc")):
+        return "dev"
+    return "prod"
+
+
+def _clean_requirements_line(line: str) -> str | None:
+    """Remove comments and unsupported pip options from one requirements line."""
+
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+    if stripped.startswith(("-", "--")):
+        return None
+    if "://" in stripped or stripped.startswith(("git+", "hg+", "svn+", "bzr+")):
+        return None
+    return _strip_inline_comment(stripped).strip() or None
+
+
+def _strip_inline_comment(line: str) -> str:
+    """Strip comments that are separated from the requirement by whitespace."""
+
+    return re.sub(r"\s+#.*$", "", line)
 
 
 def _quoted_value(line: str) -> str | None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 import os
 from pathlib import Path
+import re
 
 
 DEFAULT_EXCLUDES = {
@@ -34,6 +35,8 @@ PROJECT_MANIFEST_NAMES = {
     "package.json",
     "pyproject.toml",
 }
+
+PYTHON_REQUIREMENTS_PATTERN = re.compile(r"(^|[-_.])requirements([-_.].*)?\.txt$", re.IGNORECASE)
 
 PYTHON_TREE_EXCLUDES = {
     "__pycache__",
@@ -181,6 +184,9 @@ def candidate_files(
                 yield path
                 continue
             if filename in PROJECT_MANIFEST_NAMES and not _is_under(path, "node_modules"):
+                yield path
+                continue
+            if PYTHON_REQUIREMENTS_PATTERN.match(filename) and not _is_under(path, "node_modules"):
                 yield path
                 continue
             if include_installed and filename == "package.json" and _is_under(path, "node_modules"):

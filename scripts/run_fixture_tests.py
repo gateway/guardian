@@ -28,6 +28,8 @@ from guardian.upstream_context import (  # noqa: E402
     detect_repo_reporting_policy,
     _tracking_match_is_relevant,
 )
+from guardian.dependency_files import fingerprint_dependency_files  # noqa: E402
+from guardian.inventory_native.engine import scan_package_records  # noqa: E402
 from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
@@ -141,6 +143,38 @@ def assert_uv_lock_fixture(tmp: Path) -> None:
     ]
     if not matched:
         raise AssertionError(f"uv.lock fixture did not produce expected PyPI exact-match finding: {packages[:5]}")
+
+
+def assert_requirements_fixture(tmp: Path) -> None:
+    """requirements*.txt files should be inventoried without treating ranges as exact versions."""
+
+    root = tmp / "requirements-pypi"
+    records, metrics = scan_package_records(root, ecosystems=["pypi"], include_installed=False)
+    package_versions = {
+        (item["normalized_name"], item["version"], item["install_scope"])
+        for item in records
+        if item.get("source_type") == "requirements-manifest"
+    }
+    expected = {
+        ("critical-package", "1.2.3", "prod"),
+        ("extras-package", "2.0.1", "prod"),
+        ("pytest", "8.4.0", "dev"),
+    }
+    if package_versions != expected:
+        raise AssertionError(f"requirements exact-pin inventory mismatch: {package_versions}")
+    if metrics["candidate_counts_by_name"].get("requirements.txt") != 2:
+        raise AssertionError(f"requirements files were not both discovered: {metrics}")
+    fingerprints = fingerprint_dependency_files(root)
+    requirement_files = {
+        item["file_path"]: item["file_kind"]
+        for item in fingerprints
+        if item["file_path"].endswith("requirements.txt")
+    }
+    if requirement_files != {
+        "requirements.txt": "python-requirements",
+        "tests-unit/requirements.txt": "python-requirements",
+    }:
+        raise AssertionError(f"requirements fingerprints missing or misclassified: {requirement_files}")
 
 
 def assert_snapshot_resolution(tmp: Path) -> None:
@@ -316,12 +350,19 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="guardian-fixtures-") as raw_tmp:
         tmp = Path(raw_tmp)
-        for fixture in ("clean-npm", "malicious-local-catalog", "vendored-yarn-metadata", "uv-lock-pypi"):
+        for fixture in (
+            "clean-npm",
+            "malicious-local-catalog",
+            "vendored-yarn-metadata",
+            "uv-lock-pypi",
+            "requirements-pypi",
+        ):
             shutil.copytree(FIXTURES / fixture, tmp / fixture)
         assert_clean_fixture(tmp)
         assert_local_catalog_fixture(tmp)
         assert_vendored_fixture(tmp)
         assert_uv_lock_fixture(tmp)
+        assert_requirements_fixture(tmp)
         assert_snapshot_resolution(tmp)
         assert_daily_watch_fingerprints(tmp)
         assert_upstream_reporting_policy_helpers(tmp)

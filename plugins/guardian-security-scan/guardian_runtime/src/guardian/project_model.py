@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .util import normalize_package_name
+from .inventory_native.walker import PYTHON_REQUIREMENTS_PATTERN
 
 try:
     import tomllib
@@ -24,6 +25,16 @@ def _parse_requirement_name(spec: str) -> str | None:
             spec = spec.split(stop, 1)[0]
     spec = spec.strip()
     return spec or None
+
+
+def _requirements_path_is_dev(path: Path) -> bool:
+    """Infer whether a requirements file is test/dev scoped."""
+
+    lower_parts = {part.lower() for part in path.parts}
+    lower_name = path.name.lower()
+    if lower_parts.intersection({"test", "tests", "tests-unit", "testing", "docs", "examples"}):
+        return True
+    return any(marker in lower_name for marker in ("dev", "test", "lint", "type", "doc"))
 
 
 @dataclass
@@ -65,6 +76,14 @@ class ProjectInspector:
                 record = self._parse_pyproject(path)
                 if record:
                     manifests.append(record)
+        for path in root.rglob("*.txt"):
+            if any(part in {".venv", "venv", "node_modules"} for part in path.parts):
+                continue
+            if not PYTHON_REQUIREMENTS_PATTERN.match(path.name):
+                continue
+            record = self._parse_requirements(path)
+            if record:
+                manifests.append(record)
         self._cache[root_path] = manifests
         return manifests
 
@@ -134,6 +153,38 @@ class ProjectInspector:
             dependencies=deps,
             dev_dependencies=dev,
             build_dependencies=build,
+        )
+
+    def _parse_requirements(self, path: Path) -> ManifestRecord | None:
+        """Read pip requirements names so findings can be scoped accurately."""
+
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception:
+            return None
+        deps: set[str] = set()
+        dev: set[str] = set()
+        target = dev if _requirements_path_is_dev(path) else deps
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("#", "-", "--")):
+                continue
+            if "://" in stripped or stripped.startswith(("git+", "hg+", "svn+", "bzr+")):
+                continue
+            stripped = stripped.split(" #", 1)[0].strip()
+            name = _parse_requirement_name(stripped)
+            if name:
+                target.add(normalize_package_name("pypi", name))
+        if not deps and not dev:
+            return None
+        return ManifestRecord(
+            ecosystem="pypi",
+            path=str(path),
+            root_dir=str(path.parent),
+            package_name=None,
+            dependencies=deps,
+            dev_dependencies=dev,
+            build_dependencies=set(),
         )
 
     def manifest_scope(

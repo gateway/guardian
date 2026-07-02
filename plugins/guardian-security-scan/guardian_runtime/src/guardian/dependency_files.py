@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .integrity import sha256_file
-from .inventory_native.walker import candidate_files
+from .inventory_native.walker import PYTHON_REQUIREMENTS_PATTERN, candidate_files
 
 
 def fingerprint_dependency_files(
@@ -49,6 +49,8 @@ def dependency_file_kind(path: Path) -> str:
         return "uv-lock"
     if name == "pyproject.toml":
         return "python-manifest"
+    if PYTHON_REQUIREMENTS_PATTERN.match(name):
+        return "python-requirements"
     if name in {"METADATA", "PKG-INFO"}:
         return "python-installed-metadata"
     return "dependency-file"

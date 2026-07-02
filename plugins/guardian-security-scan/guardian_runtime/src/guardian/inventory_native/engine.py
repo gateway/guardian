@@ -11,7 +11,8 @@ from guardian.config import GuardianConfig
 from guardian.util import read_ndjson, slugify, write_json
 
 from .npm import parse_node_package_json, parse_package_json_manifest, parse_package_lock, parse_pnpm_lock, parse_yarn_lock
-from .pypi import parse_pyproject_manifest, parse_python_metadata, parse_uv_lock
+from .pypi import parse_pyproject_manifest, parse_python_metadata, parse_requirements_manifest, parse_uv_lock
+from .walker import PYTHON_REQUIREMENTS_PATTERN
 from .walker import candidate_files
 
 
@@ -65,6 +66,8 @@ def scan_package_records(
                 records.extend(parse_uv_lock(path, root_path))
             elif path.name == "pyproject.toml":
                 records.extend(parse_pyproject_manifest(path, root_path))
+            elif PYTHON_REQUIREMENTS_PATTERN.match(path.name):
+                records.extend(parse_requirements_manifest(path, root_path))
             elif include_installed and path.name in {"METADATA", "PKG-INFO"}:
                 records.extend(parse_python_metadata(path, root_path))
         for record in records[before:]:
