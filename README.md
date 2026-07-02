@@ -132,18 +132,17 @@ Use Sonnet with low or normal effort for routine scan summaries. Guardian does t
 
 Use this for normal project security scans, repeat scans, fix verification, and handoff reports.
 
-Example prompts:
+Copy/paste prompt:
 
-- Use Guardian to scan this project read-only and summarize actionable package risk.
-- Run Guardian again and compare this scan with the previous scan so I can see what is new, fixed, changed, or unchanged.
+> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Compare this scan with the previous scan if one exists, then summarize the current posture, top actionable findings, advisory links, evidence context, and suggested next steps.
 
 ### `guardian-daily-watch`
 
 Use this for lightweight morning automation across known local repos. It fingerprints dependency files, skips unchanged inventory, and can refresh advisory data for known package inventories.
 
-Example prompt:
+Copy/paste prompt:
 
-- Use Guardian daily watch to check my known local repos and summarize what changed.
+> Use Guardian daily watch to check my known local repos. Keep it lightweight, skip unchanged dependency inventories where possible, refresh advisory data for known packages if available, and summarize only new, resolved, changed, or high-priority findings.
 
 See [`docs/AUTOMATION.md`](docs/AUTOMATION.md) for scheduled scan strategy.
 
@@ -151,9 +150,9 @@ See [`docs/AUTOMATION.md`](docs/AUTOMATION.md) for scheduled scan strategy.
 
 Use this for temporary scans of public GitHub repos you do not own. Repo Scout uses disposable clones and temporary Guardian state by default, then reports high-signal findings and the recommended reporting path.
 
-Example prompt:
+Copy/paste prompt:
 
-- Use Guardian repo scout to scan `owner/name` with temporary state and show only high-signal findings.
+> Use Guardian repo scout to scan `owner/name` with temporary clones and temporary Guardian state. Do not install dependencies or run project code. Show only high-signal dependency findings, include advisory links and reporting-path guidance, and clean up temporary files when finished.
 
 See [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md) for the public-repo scouting workflow.
 
@@ -161,17 +160,17 @@ See [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md) for the public-repo scouting work
 
 Use this for dependency bloat, unused packages, and "could simple local code replace this dependency?" review. This is separate from vulnerability scanning.
 
-Example prompt:
+Copy/paste prompt:
 
-- Use Guardian package diet to find unused packages and simple replace-with-code candidates.
+> Use Guardian package diet on this repo. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
 
 ### `guardian-advisory-pr`
 
 Use this after Guardian confirms an actionable finding and you want a maintainer-friendly PR with advisory links, dependency evidence, fix rationale, and validation notes.
 
-Example prompt:
+Copy/paste prompt:
 
-- Use Guardian Advisory PR to prepare a maintainer-friendly security PR for this confirmed finding.
+> Use Guardian Advisory PR for this confirmed finding. Prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
 
 ## Automation
 
