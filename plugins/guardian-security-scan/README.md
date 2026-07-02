@@ -17,6 +17,8 @@ Skill calls are namespaced:
 - Codex: `$guardian-security-scan:guardian-project-scan`
 - Claude Code: `/guardian-security-scan:guardian-project-scan`
 
+Standalone personal skills may have shorter names. Guardian skills are namespaced because they are installed from a plugin bundle.
+
 ## Test Your First Repo
 
 After installing, open Codex or Claude Code in a project you want to scan and use one of these prompts:

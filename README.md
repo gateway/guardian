@@ -140,6 +140,8 @@ Skill calls are slightly different by harness:
 - Claude Code: use `/guardian-security-scan:skill-name`.
 - Natural language usually works too, but the prefixed form is the clearest copy/paste option.
 
+Standalone personal skills may have shorter names such as `$guarded-code`; Guardian skills are plugin skills, so they use the plugin namespace to avoid collisions with other installed skills.
+
 ### `guardian-project-scan`
 
 Use this for normal project security scans, repeat scans, fix verification, and handoff reports.

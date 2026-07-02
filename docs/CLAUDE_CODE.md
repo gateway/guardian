@@ -71,7 +71,7 @@ Guardian's release check discovers that path automatically when it exists and pr
 
 After installing, open Claude Code or Claude Desktop Code in a project you want to scan and ask:
 
-> Use the guardian-security-scan:guardian-project-scan skill to scan this repo read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and suggested next steps.
+> /guardian-security-scan:guardian-project-scan Scan this repo read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and suggested next steps.
 
 Claude Desktop Code uses the Claude Code runtime under the hood. A response that says the runner was invoked through Claude Code/Bash is still a valid Desktop Code plugin path when the session was launched from the Desktop Code UI.
 
