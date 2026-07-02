@@ -104,42 +104,13 @@ High-severity advisory matches still need context before upstream reporting:
 
 When a finding is real but broad, ambiguous, already tracked, or tied to private disclosure rules, prefer an issue, private advisory, or no duplicate report over a low-quality PR.
 
-## Regression Expectations
+## Expected Behavior
 
-Repo Scout should keep these behaviors stable:
+Repo Scout should preserve these public-facing guarantees:
 
-- Large repos complete as one paced scan when the configured budget is sufficient.
 - Temporary clones and temporary Guardian state are removed by default.
+- Large repos run with explicit, paced time budgets.
 - GHSA exact-match checks stay capped and paced.
 - High-signal findings include reporting-path guidance.
-- Findings in examples, docs, fixtures, vendored metadata, generated lockfiles, or stale nested lockfiles do not outrank stronger runtime evidence.
-- Scout output is useful enough to decide whether `guardian-advisory-pr` should be used next.
-
-## What We Should Improve
-
-1. Add an automatic two-stage mode.
-Repo Scout should be able to run a fast first pass, then automatically escalate to GHSA or deep mode only when the repo size and finding signal justify the extra cost.
-
-2. Write an explicit external report artifact.
-Today callers can redirect JSON to a file. A first-class `--report-path` option would make automation cleaner while still deleting temporary clones and temporary database state.
-
-3. Surface source coverage more clearly.
-The output should summarize source coverage in one small block: OSV packages checked, GHSA target count, threat-intel revision, packages skipped by budget, and whether any source failed or was rate-limited.
-
-4. Keep refining repo preflight sizing.
-Guardian now preflights dependency-file count and reports post-inventory package counts. Future refinement should estimate scan cost even earlier and recommend a budget before live advisory refresh begins.
-
-5. Keep improving PR-candidate filters.
-Repo Scout already suppresses root package self-version findings so projects like `axios/axios` do not become bad PR candidates. We should continue filtering findings that are real advisories but poor upstream PR targets, such as docs-only manifests, generated fixtures, vendored examples, and intentionally vulnerable test fixtures.
-
-6. Add batch ranking.
-For a list of repos, Guardian should rank output by "PR-worthiness": confirmed runtime/direct exposure first, then high-confidence transitive risk, then noisy or low-confidence findings last.
-
-7. Add maintainer handoff mode.
-When a candidate is found, Guardian should produce a small handoff for the PR skill with package, version, advisory links, dependency path, code usage hints, and recommended safe fix.
-
-8. Show source path and directness in scout top findings.
-The second batch showed that a high-severity finding in an example lockfile can outrank a more relevant direct app dependency. Scout summaries should include source path, project path, direct dependency status, and whether the source is root app, package workspace, CI script, example, docs, or test fixture.
-
-9. Add exact candidate verification.
-After a scout pass finds packages, Guardian should run exact `gate check-package` style verification for candidate package/version pairs before recommending a PR. This is cheaper than rerunning broad GHSA scans and gives cleaner fixed-version guidance.
+- Examples, docs, fixtures, vendored metadata, generated lockfiles, and stale nested lockfiles should not outrank stronger runtime evidence.
+- Output should make it clear whether `guardian-advisory-pr` is appropriate next.
