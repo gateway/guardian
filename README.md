@@ -36,16 +36,16 @@ Guardian is evidence-first. It should not tell an agent to upgrade a package unl
 
 ### Codex Desktop
 
-If your Codex app has a plugin UI, add Guardian as a GitHub marketplace/repository:
+Open **Plugins** in the Codex app. If your app exposes an add-marketplace or add-repository flow, add Guardian with:
 
 - Marketplace or GitHub repo: `gateway/guardian`
 - Plugin to install: `guardian-security-scan`
 
-Start a new Codex thread after installing so the Guardian skills are loaded.
+If the app does not expose that source flow, use the Codex CLI commands below once from Terminal, then restart Codex or start a new thread so the Guardian skills are loaded.
 
 ### Codex CLI
 
-The CLI install is two steps because Codex first adds the Guardian marketplace source, then installs the plugin from that marketplace.
+Run these commands in Terminal. The install is two steps because Codex first adds the Guardian marketplace source, then installs the plugin from that marketplace.
 
 1. Add the Guardian marketplace:
 
@@ -71,28 +71,30 @@ codex plugin add guardian-security-scan@guardian
 
 ### Claude Desktop / Claude Code UI
 
-If your Claude app has a plugin UI, add Guardian from GitHub:
+In Claude Code, type `/plugin` in the prompt box to open the plugin manager. Go to **Marketplaces**, add Guardian, then install the plugin:
 
 - Plugin source or GitHub repo: `https://github.com/gateway/guardian`
 - Plugin to install: `guardian-security-scan`
 
 Claude skills are namespaced after install, for example `guardian-security-scan:guardian-project-scan`.
 
-### Claude CLI
+### Claude Code Prompt Commands
 
-The CLI install is also two steps: add the Guardian marketplace, then install the plugin.
+These are Claude Code slash commands. Paste them into a Claude Code prompt, not your shell. The install is two steps: add the Guardian marketplace, then install the plugin.
 
 1. Add the Guardian marketplace:
 
-```bash
-claude plugin marketplace add gateway/guardian
+```text
+/plugin marketplace add gateway/guardian
 ```
 
 2. Install the Guardian plugin:
 
-```bash
-claude plugin install guardian-security-scan@guardian
+```text
+/plugin install guardian-security-scan@guardian
 ```
+
+Run `/reload-plugins` or start a new Claude Code session after installing.
 
 Guardian's Claude skills are namespaced:
 

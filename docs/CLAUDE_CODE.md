@@ -4,21 +4,23 @@ Guardian can be installed as a Claude Code plugin from the same repository as th
 
 ## Install From GitHub
 
-Claude CLI install is two steps: add the Guardian marketplace, then install the plugin from that marketplace.
+Claude Code plugin install is two steps: add the Guardian marketplace, then install the plugin from that marketplace.
+
+Paste these slash commands into a Claude Code prompt. They are not shell commands.
 
 1. Add the Guardian marketplace:
 
-```bash
-claude plugin marketplace add gateway/guardian
+```text
+/plugin marketplace add gateway/guardian
 ```
 
 2. Install the plugin:
 
-```bash
-claude plugin install guardian-security-scan@guardian
+```text
+/plugin install guardian-security-scan@guardian
 ```
 
-Reload plugins or start a new Claude Code session. Guardian skills are namespaced by the plugin:
+Run `/reload-plugins` or start a new Claude Code session. Guardian skills are namespaced by the plugin:
 
 ```text
 /guardian-security-scan:guardian-project-scan
@@ -30,19 +32,24 @@ Reload plugins or start a new Claude Code session. Guardian skills are namespace
 
 ## Install From A Local Checkout
 
-From the parent directory:
+From Terminal, clone the repo:
 
 ```bash
 git clone https://github.com/gateway/guardian.git
-claude plugin marketplace add ./guardian
-claude plugin install guardian-security-scan@guardian
 ```
 
-From inside the Guardian checkout, use the exact local source form Claude expects:
+Then open Claude Code from the parent directory and paste:
 
-```bash
-claude plugin marketplace add ./
-claude plugin install guardian-security-scan@guardian
+```text
+/plugin marketplace add ./guardian
+/plugin install guardian-security-scan@guardian
+```
+
+Or, if Claude Code is already opened from inside the Guardian checkout, paste:
+
+```text
+/plugin marketplace add ./
+/plugin install guardian-security-scan@guardian
 ```
 
 ## Validate Locally
