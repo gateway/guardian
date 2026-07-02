@@ -8,6 +8,8 @@ Claude Code plugin install is two steps: add the Guardian marketplace, then inst
 
 Paste these slash commands into a Claude Code prompt. They are not shell commands.
 
+`gateway/guardian` is GitHub shorthand for `https://github.com/gateway/guardian`. Claude Code reads this repo's `.claude-plugin/marketplace.json`; that file names the marketplace `guardian` and points the `guardian-security-scan` plugin at `./plugins/guardian-security-scan`.
+
 1. Add the Guardian marketplace:
 
 ```text

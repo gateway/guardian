@@ -47,6 +47,8 @@ If the app does not expose that source flow, use the Codex CLI commands below on
 
 Run these commands in Terminal. The install is two steps because Codex first adds the Guardian marketplace source, then installs the plugin from that marketplace.
 
+`gateway/guardian` is GitHub shorthand for `https://github.com/gateway/guardian`. Codex reads this repo's `.agents/plugins/marketplace.json`; that file names the marketplace `guardian` and points the `guardian-security-scan` plugin at `./plugins/guardian-security-scan`.
+
 1. Add the Guardian marketplace:
 
 ```bash
@@ -81,6 +83,8 @@ Claude skills are namespaced after install, for example `guardian-security-scan:
 ### Claude Code Prompt Commands
 
 These are Claude Code slash commands. Paste them into a Claude Code prompt, not your shell. The install is two steps: add the Guardian marketplace, then install the plugin.
+
+`gateway/guardian` is GitHub shorthand for `https://github.com/gateway/guardian`. Claude Code reads this repo's `.claude-plugin/marketplace.json`; that file names the marketplace `guardian` and points the `guardian-security-scan` plugin at `./plugins/guardian-security-scan`.
 
 1. Add the Guardian marketplace:
 
