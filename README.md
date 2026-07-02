@@ -34,14 +34,32 @@ Guardian is evidence-first. It should not tell an agent to upgrade a package unl
 
 ## Install In Codex
 
-```bash
-codex plugin marketplace add gateway/guardian --ref main
-codex plugin add guardian-security-scan@guardian
-```
+### Codex Desktop
+
+If your Codex app has a plugin UI, add Guardian as a GitHub marketplace/repository:
+
+- Marketplace or GitHub repo: `gateway/guardian`
+- Plugin to install: `guardian-security-scan`
 
 Start a new Codex thread after installing so the Guardian skills are loaded.
 
-For local development from a checkout:
+### Codex CLI
+
+The CLI install is two steps because Codex first adds the Guardian marketplace source, then installs the plugin from that marketplace.
+
+1. Add the Guardian marketplace:
+
+```bash
+codex plugin marketplace add gateway/guardian --ref main
+```
+
+2. Install the Guardian plugin:
+
+```bash
+codex plugin add guardian-security-scan@guardian
+```
+
+For local development from a checkout, use the local path instead of the GitHub marketplace:
 
 ```bash
 git clone https://github.com/gateway/guardian.git
@@ -51,44 +69,62 @@ codex plugin add guardian-security-scan@guardian
 
 ## Install In Claude Code
 
+### Claude Desktop / Claude Code UI
+
+If your Claude app has a plugin UI, add Guardian from GitHub:
+
+- Plugin source or GitHub repo: `https://github.com/gateway/guardian`
+- Plugin to install: `guardian-security-scan`
+
+Claude skills are namespaced after install, for example `guardian-security-scan:guardian-project-scan`.
+
+### Claude CLI
+
+The CLI install is also two steps: add the Guardian marketplace, then install the plugin.
+
+1. Add the Guardian marketplace:
+
 ```bash
 claude plugin marketplace add gateway/guardian
+```
+
+2. Install the Guardian plugin:
+
+```bash
 claude plugin install guardian-security-scan@guardian
 ```
 
 Guardian's Claude skills are namespaced:
 
-```text
-/guardian-security-scan:guardian-project-scan
-/guardian-security-scan:guardian-daily-watch
-/guardian-security-scan:guardian-repo-scout
-/guardian-security-scan:guardian-package-diet
-/guardian-security-scan:guardian-advisory-pr
-```
+- `guardian-security-scan:guardian-project-scan`
+- `guardian-security-scan:guardian-daily-watch`
+- `guardian-security-scan:guardian-repo-scout`
+- `guardian-security-scan:guardian-package-diet`
+- `guardian-security-scan:guardian-advisory-pr`
 
 For Claude-specific install and validation notes, see [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
 
-## Quick Test
+## Test Your First Repo
 
-After installing in Claude Code, verify the cached plugin can run:
+After installing, open Codex or Claude in a project you want to scan and use this prompt:
+
+> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+
+A good first scan should report:
+
+- Current posture, such as `0 act now`, `1 fix this week`, or `watch`.
+- Whether findings are runtime-linked, transitive, vendored metadata, test-only, or isolated.
+- Advisory links and severity when a package matches a known issue.
+- What changed compared with the previous scan if this repo has been scanned before.
+- Paths to any operator JSON or Markdown handoff artifacts.
+
+If you are testing from a Guardian checkout instead of an installed plugin, run:
 
 ```bash
-GUARDIAN_PLUGIN_BIN="$(find "$HOME/.claude/plugins/cache/guardian/guardian-security-scan" -path '*/scripts/guardian' -type f -print | sort | tail -n 1)"
-GUARDIAN_SMOKE_STATE="$(mktemp -d "${TMPDIR:-/tmp}/guardian-smoke.XXXXXX")"
-GUARDIAN_STATE_DIR="$GUARDIAN_SMOKE_STATE" "$GUARDIAN_PLUGIN_BIN" report summary --json
+./plugins/guardian-security-scan/scripts/guardian scan /path/to/repo --mode daily --output compact --json
 ```
 
-From a local checkout:
-
-```bash
-./plugins/guardian-security-scan/scripts/guardian report summary --json
-```
-
-From an agent session after install:
-
-> Use Guardian to scan this project read-only and give me the operator summary.
-
-Use Sonnet with low or normal effort for smoke scans. Guardian does the dependency scan locally; higher-reasoning models are usually unnecessary for install verification.
+Use Sonnet with low or normal effort for routine scan summaries. Guardian does the dependency scan locally; higher-reasoning models are usually unnecessary for install verification.
 
 ## Skills And When To Use Them
 

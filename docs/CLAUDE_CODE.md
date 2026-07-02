@@ -4,13 +4,15 @@ Guardian can be installed as a Claude Code plugin from the same repository as th
 
 ## Install From GitHub
 
-Add the Guardian marketplace:
+Claude CLI install is two steps: add the Guardian marketplace, then install the plugin from that marketplace.
+
+1. Add the Guardian marketplace:
 
 ```bash
 claude plugin marketplace add gateway/guardian
 ```
 
-Install the plugin:
+2. Install the plugin:
 
 ```bash
 claude plugin install guardian-security-scan@guardian
@@ -65,7 +67,15 @@ If Claude Desktop has installed its bundled Claude Code runtime but `claude` is 
 
 Guardian's release check discovers that path automatically when it exists and prints the validator path it is using.
 
-## Smoke Test
+## Test Your First Repo
+
+After installing, open Claude Code or Claude Desktop Code in a project you want to scan and ask:
+
+> Use the guardian-security-scan:guardian-project-scan skill to scan this repo read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and suggested next steps.
+
+Claude Desktop Code uses the Claude Code runtime under the hood. A response that says the runner was invoked through Claude Code/Bash is still a valid Desktop Code plugin path when the session was launched from the Desktop Code UI.
+
+## Advanced CLI Smoke Test
 
 Use Sonnet with low or normal effort for smoke scans. Guardian's CLI does the actual dependency inventory and advisory matching locally, so Opus/High is not needed to verify install health.
 
@@ -90,14 +100,6 @@ GUARDIAN_STATE_DIR="$GUARDIAN_SMOKE_STATE" "$GUARDIAN_PLUGIN_BIN" \
 ```
 
 The temporary state directory keeps smoke output from mixing with your real `~/.guardian-security-scan` history. Do not call `~/.claude/plugins/cache/guardian/guardian-security-scan/*/scripts/guardian` directly after updates. Claude can keep more than one cached plugin version, and a shell wildcard can expand to multiple binaries.
-
-In Claude Desktop Code or Claude Code, a live skill prompt can be:
-
-```text
-Use the guardian-security-scan:guardian-project-scan skill to scan this repo read-only. Do not edit files, install dependencies, or run project code.
-```
-
-Claude Desktop Code uses the Claude Code runtime under the hood. A response that says the runner was invoked through Claude Code/Bash is still a valid Desktop Code plugin path when the session was launched from the Desktop Code UI.
 
 ## Runtime Notes
 

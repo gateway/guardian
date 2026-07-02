@@ -22,23 +22,25 @@ Claude Code skill names are namespaced:
 /guardian-security-scan:guardian-advisory-pr
 ```
 
-## Smoke Test
+## Test Your First Repo
 
-Use Sonnet with low or normal effort for smoke scans. Guardian's local runner performs the scan; higher reasoning models are usually not needed just to verify the plugin works.
+After installing, open Claude Code or Codex in a project you want to scan and ask:
 
-From an installed Claude plugin cache:
+> Use Guardian to scan this project read-only. Do not edit files, install dependencies, or run project code. Give me the operator summary, top findings, and any suggested next steps.
+
+From this plugin directory, you can also run a direct CLI scan:
 
 ```bash
-GUARDIAN_PLUGIN_BIN="$(find "$HOME/.claude/plugins/cache/guardian/guardian-security-scan" -path '*/scripts/guardian' -type f -print | sort | tail -n 1)"
-GUARDIAN_SMOKE_STATE="$(mktemp -d "${TMPDIR:-/tmp}/guardian-smoke.XXXXXX")"
-GUARDIAN_STATE_DIR="$GUARDIAN_SMOKE_STATE" "$GUARDIAN_PLUGIN_BIN" report summary --json
+./scripts/guardian scan /path/to/repo --mode daily --output compact --json
 ```
 
-From this plugin directory:
+For a no-project install check from this plugin directory:
 
 ```bash
 ./scripts/guardian report summary --json
 ```
+
+Use Sonnet with low or normal effort for routine scan summaries. Guardian's local runner performs the scan; higher reasoning models are usually not needed for install verification.
 
 ## Notes
 
