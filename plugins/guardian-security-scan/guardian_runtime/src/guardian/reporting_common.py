@@ -171,7 +171,8 @@ def package_evidence_context(package: dict) -> dict:
     has_manifest = "manifest" in evidence_kinds or any("manifest" in item for item in source_types)
     has_lockfile = "lockfile" in evidence_kinds or any("lockfile" in item for item in source_types)
     has_installed = "installed" in evidence_kinds or any(
-        item in {"npm-node_modules", "python-installed-metadata"} for item in source_types
+        item in {"npm-node_modules", "pypi-dist-info", "pypi-egg-info", "python-installed-metadata"}
+        for item in source_types
     )
     direct_dependency = bool(package.get("direct_dependency"))
     environment = package.get("environment_label")

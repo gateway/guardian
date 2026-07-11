@@ -46,7 +46,7 @@ Before switching to `guardian-advisory-pr`, use Guardian's `reporting_path` and 
 
 Reporting paths:
 - `Public PR OK`: a direct PR appears acceptable.
-- `Open issue first`: repo policy suggests discussion or an issue before a PR.
+- `Open issue first`: repo policy suggests discussion first, or the bounded scan did not verify a fixed target for a dependency-change PR.
 - `Private security advisory only`: repo policy asks for private security reporting.
 - `Do not report, already tracked`: an open upstream PR or issue already appears to cover the same package/advisory.
 

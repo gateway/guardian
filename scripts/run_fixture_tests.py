@@ -46,6 +46,7 @@ from guardian.sources.kev import KEVClient  # noqa: E402
 from guardian.sources.osv import OSVClient  # noqa: E402
 from guardian.signals import SignalGrade, grade_to_posture  # noqa: E402
 from guardian.triage_rules import _issue_signal_grade  # noqa: E402
+from guardian.triage_queue import package_remediation_queue  # noqa: E402
 
 
 def run_guardian(
@@ -525,6 +526,21 @@ def assert_upstream_reporting_policy_helpers(tmp: Path) -> None:
     if decision["decision"] != REPORT_ALREADY_TRACKED:
         raise AssertionError(f"already-tracked finding should suppress new reports: {decision}")
 
+    no_fix = decide_reporting_path(
+        public_policy,
+        {"status": "none-found"},
+        {"first_fixed_version": None, "recommended_clean_version": None},
+    )
+    if no_fix["decision"] != REPORT_OPEN_ISSUE:
+        raise AssertionError(f"finding without a verified fix should not invite a PR: {no_fix}")
+    private_no_fix = decide_reporting_path(
+        private_policy,
+        {"status": "none-found"},
+        {"first_fixed_version": None, "recommended_clean_version": None},
+    )
+    if private_no_fix["decision"] != REPORT_PRIVATE:
+        raise AssertionError(f"private security policy must override no-fix routing: {private_no_fix}")
+
     unrelated = {"title": "WeChat media downloads broken with cryptography >= 48.0.0"}
     if _tracking_match_is_relevant(unrelated, "cryptography", "cryptography"):
         raise AssertionError("generic package bug should not count as upstream security tracking")
@@ -602,6 +618,56 @@ def assert_reporting_advisory_and_evidence_helpers() -> None:
         raise AssertionError(f"runtime evidence caveat was not preserved: {context}")
     if context["installed_tree_present"]:
         raise AssertionError(f"installed tree should not be marked present for lockfile-only evidence: {context}")
+
+    installed_context = package_evidence_context({
+        **package,
+        "occurrences": [
+            *package["occurrences"],
+            {"source_type": "pypi-dist-info"},
+        ],
+    })
+    if not installed_context["installed_tree_present"]:
+        raise AssertionError(f"PyPI dist-info was not recognized as installed evidence: {installed_context}")
+
+    queued = package_remediation_queue([{
+        "risk_bucket": "act-now",
+        "risk_label": "Act Now",
+        "severity": "high",
+        "canonical_key": "osv:GHSA-fixture",
+        "classification_labels": ["Known Vulnerable"],
+        "signal_grade": "advisory",
+        "packages": [{
+            "ecosystem": "npm",
+            "package_name": "next",
+            "normalized_name": "next",
+            "version": "16.2.4",
+            "role": "runtime",
+            "role_label": "Runtime",
+            "environment_label": "runtime",
+            "root_cause": None,
+            "necessity": "keep",
+            "direct_dependency": True,
+            "manifest_scope": "runtime",
+            "manifest_paths": ["frontend/package.json"],
+            "occurrences": package["occurrences"],
+            "usage_by_kind": {"runtime": 1, "build": 0, "test": 0},
+            "usage": [],
+            "usage_hit_count": 1,
+            "recommended_clean_version": None,
+            "first_fixed_version": None,
+            "latest_version": None,
+            "upgrade_risk": {},
+            "root_paths": ["/fixture"],
+            "suggestions": [],
+        }],
+        "sources": ["osv:GHSA-fixture"],
+        "urls": ["https://osv.dev/vulnerability/GHSA-fixture"],
+        "suggestions": [],
+        "signals": [],
+    }])
+    queued_context = package_evidence_context(queued[0])
+    if not queued_context["manifest_present"] or not queued_context["lockfile_present"]:
+        raise AssertionError(f"remediation queue dropped package occurrence evidence: {queued_context}")
 
 
 def main() -> int:

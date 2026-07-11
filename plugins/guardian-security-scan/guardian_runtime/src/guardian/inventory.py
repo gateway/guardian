@@ -13,6 +13,7 @@ from .util import read_ndjson
 
 DEFAULT_ECOSYSTEMS = ("npm", "pypi", "go", "crates.io", "packagist")
 SUPPORTED_ENGINES = {"guardian-native"}
+NATIVE_SUPPORTED_ECOSYSTEMS = frozenset(DEFAULT_ECOSYSTEMS)
 
 
 def _effective_engine(config: GuardianConfig, requested_engine: str | None, ecosystems: Iterable[str]) -> str:
@@ -21,8 +22,10 @@ def _effective_engine(config: GuardianConfig, requested_engine: str | None, ecos
         engine = config.inventory_engine
     if engine not in SUPPORTED_ENGINES:
         raise ValueError(f"unsupported inventory engine: {engine}")
-    supported = set(config.inventory_native_supported_ecosystems)
-    unsupported = sorted(set(ecosystems) - supported)
+    # Scanner capabilities belong to this release, not persisted user state. Older
+    # Guardian configs only listed npm/PyPI and must not disable parsers added by
+    # a plugin upgrade.
+    unsupported = sorted(set(ecosystems) - NATIVE_SUPPORTED_ECOSYSTEMS)
     if unsupported:
         raise ValueError(f"guardian-native does not support ecosystems: {', '.join(unsupported)}")
     return engine

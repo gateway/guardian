@@ -32,6 +32,8 @@ def build_compact_operator_view(
                 "environment_label": package.get("environment_label"),
                 "role_label": package.get("role_label"),
                 "highest_severity": package.get("highest_severity"),
+                "first_fixed_version": package.get("first_fixed_version"),
+                "recommended_clean_version": package.get("recommended_clean_version"),
                 "advisory_links": package.get("advisory_links", [])[:2],
                 "advisory_details": advisory_details(package, limit=2),
                 "evidence_context": package_evidence_context(package),

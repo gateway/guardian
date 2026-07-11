@@ -130,14 +130,14 @@ def _occurrence_scope_summary(occurrences: list[dict]) -> dict:
     }
 
 
-def _version_specific_manifest_scope(manifest_scope: str, direct_dependency: bool, scope_summary: dict) -> str:
-    if scope_summary["dev_only"] and not direct_dependency:
+def _version_specific_manifest_scope(manifest_scope: str, scope_summary: dict) -> str:
+    if scope_summary["dev_only"]:
         return "test"
     return manifest_scope
 
 
-def _version_specific_usage_counts(usage_counts: dict[str, int], direct_dependency: bool, scope_summary: dict) -> dict[str, int]:
-    if scope_summary["dev_only"] and not direct_dependency:
+def _version_specific_usage_counts(usage_counts: dict[str, int], scope_summary: dict) -> dict[str, int]:
+    if scope_summary["dev_only"]:
         return {"runtime": 0, "build": 0, "test": usage_counts.get("test", 0)}
     return usage_counts
 
@@ -196,8 +196,8 @@ def _package_context(
             manifest_scope = scope
             break
     scope_summary = _occurrence_scope_summary(occurrences)
-    manifest_scope = _version_specific_manifest_scope(manifest_scope, direct_dependency, scope_summary)
-    usage_counts = _version_specific_usage_counts(usage_counts, direct_dependency, scope_summary)
+    manifest_scope = _version_specific_manifest_scope(manifest_scope, scope_summary)
+    usage_counts = _version_specific_usage_counts(usage_counts, scope_summary)
     role = _package_role(package_name, manifest_scope, usage_counts, direct_dependency)
     environment_label = _environment_label(occurrences, role, usage_counts)
     root_cause = _root_cause_summary(root_paths, ecosystem, package_name, occurrences, environment_label)
@@ -318,8 +318,8 @@ def _basic_package_context(
             manifest_scope = scope
             break
     scope_summary = _occurrence_scope_summary(occurrences)
-    manifest_scope = _version_specific_manifest_scope(manifest_scope, direct_dependency, scope_summary)
-    usage_counts = _version_specific_usage_counts(usage_counts, direct_dependency, scope_summary)
+    manifest_scope = _version_specific_manifest_scope(manifest_scope, scope_summary)
+    usage_counts = _version_specific_usage_counts(usage_counts, scope_summary)
     role = _package_role(package_name, manifest_scope, usage_counts, direct_dependency)
     environment_label = _environment_label(occurrences, role, usage_counts)
     root_cause = _root_cause_summary(

@@ -58,7 +58,7 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except Exception:
         return []
-    direct_names = _direct_dependency_names_from_pyproject(path.parent / "pyproject.toml")
+    direct_scopes = _direct_dependency_scopes_from_pyproject(path.parent / "pyproject.toml")
     records: list[dict] = []
     current: dict[str, str] = {}
 
@@ -68,7 +68,8 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
         if not name or not version:
             return
         normalized = _normalize_python_name(name)
-        direct = normalized in direct_names if direct_names else None
+        direct = normalized in direct_scopes if direct_scopes else None
+        install_scope = direct_scopes.get(normalized)
         sdist_url = current.get("sdist_url")
         sdist_only = bool(sdist_url and current.get("has_wheel") != "true")
         records.append(
@@ -82,10 +83,10 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
                 package_manager="uv",
                 confidence="high",
                 direct_dependency=direct,
-                install_scope="prod" if direct else None,
+                install_scope=install_scope,
                 evidence_kind="lockfile",
                 raw_metadata={
-                    "direct_dependency_names_available": bool(direct_names),
+                    "direct_dependency_names_available": bool(direct_scopes),
                     "has_install_script": sdist_only,
                     "install_script_kinds": ["sdist-install"] if sdist_only else [],
                     "install_script_evidence_source": "sdist-heuristic",
@@ -330,19 +331,25 @@ def _build_backend_name(text: str) -> str | None:
     return None
 
 
-def _direct_dependency_names_from_pyproject(path: Path) -> set[str]:
+def _direct_dependency_scopes_from_pyproject(path: Path) -> dict[str, str]:
+    """Map direct project dependencies to their runtime or optional scope."""
+
     if not path.exists():
-        return set()
+        return {}
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
-        return set()
-    names: set[str] = set()
-    for requirement, _scope in _project_dependency_requirements(text):
+        return {}
+    scopes: dict[str, str] = {}
+    priority = {"prod": 0, "dev": 1, "optional": 2}
+    for requirement, scope in _project_dependency_requirements(text):
         name = _requirement_name(requirement)
         if name:
-            names.add(_normalize_python_name(name))
-    return names
+            normalized = _normalize_python_name(name)
+            current = scopes.get(normalized)
+            if current is None or priority[scope] < priority[current]:
+                scopes[normalized] = scope
+    return scopes
 
 
 def _project_dependency_requirements(text: str) -> list[tuple[str, str]]:

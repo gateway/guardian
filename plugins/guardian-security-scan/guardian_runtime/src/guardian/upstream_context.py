@@ -242,7 +242,7 @@ def _dedupe_tracking_matches(matches: list[dict]) -> list[dict]:
     return sorted(result, key=lambda item: (item.get("state") != "open", item.get("kind"), item.get("number") or 0))
 
 
-def decide_reporting_path(repo_policy: dict, upstream_tracking: dict) -> dict:
+def decide_reporting_path(repo_policy: dict, upstream_tracking: dict, finding: dict | None = None) -> dict:
     """Return the operator-facing reporting path for one finding."""
 
     if upstream_tracking.get("status") == "already-tracked":
@@ -251,6 +251,19 @@ def decide_reporting_path(repo_policy: dict, upstream_tracking: dict) -> dict:
             "reason": "A matching open upstream PR or issue already exists.",
         }
     decision = repo_policy.get("default_decision") or REPORT_PUBLIC_PR
+    finding = finding or {}
+    if (
+        decision == REPORT_PUBLIC_PR
+        and not finding.get("recommended_clean_version")
+        and not finding.get("first_fixed_version")
+    ):
+        return {
+            "decision": REPORT_OPEN_ISSUE,
+            "reason": (
+                "This bounded scan did not verify a fixed package target. Run focused target "
+                "validation or discuss upstream status before proposing a dependency-change PR."
+            ),
+        }
     return {
         "decision": decision,
         "reason": repo_policy.get("reason") or "No stronger reporting constraint was detected.",
@@ -264,7 +277,7 @@ def enrich_findings_with_upstream_context(repo: str, repo_dir: Path, findings: l
     enriched: list[dict] = []
     for finding in findings:
         tracking = find_upstream_tracking(repo, finding)
-        reporting_path = decide_reporting_path(repo_policy, tracking)
+        reporting_path = decide_reporting_path(repo_policy, tracking, finding)
         enriched.append({**finding, "upstream_tracking": tracking, "reporting_path": reporting_path})
     counts = Counter(item["reporting_path"]["decision"] for item in enriched)
     return {

@@ -21,10 +21,11 @@ sys.path.insert(0, str(PLUGIN_ROOT / "guardian_runtime" / "src"))
 from guardian.advisories import refresh_findings  # noqa: E402
 from guardian.config import GuardianConfig  # noqa: E402
 from guardian.db import Database  # noqa: E402
-from guardian.inventory import scan_roots  # noqa: E402
+from guardian.inventory import _effective_engine, scan_roots  # noqa: E402
 from guardian.inventory_native.engine import scan_package_records  # noqa: E402
 from guardian.lockfile_hygiene import detect_lockfile_hygiene  # noqa: E402
 from guardian.triage_rules import _environment_label  # noqa: E402
+from guardian.triage_context import _version_specific_manifest_scope  # noqa: E402
 from guardian.util import normalize_ecosystem_for_osv  # noqa: E402
 from guardian.versions import compare_versions  # noqa: E402
 
@@ -283,6 +284,65 @@ def assert_version_ordering() -> None:
         raise AssertionError("crates.io OSV mapping missing")
 
 
+def assert_legacy_config_upgrade() -> None:
+    """Persisted pre-M4 capability fields must not disable newer parsers."""
+
+    config = GuardianConfig.from_dict({
+        "inventory_engine": "guardian-native",
+        "inventory_native_supported_ecosystems": ["npm", "pypi"],
+    })
+    selected = _effective_engine(
+        config,
+        None,
+        ["npm", "pypi", "go", "crates.io", "packagist"],
+    )
+    if selected != "guardian-native":
+        raise AssertionError(f"legacy config did not select native inventory: {selected}")
+    if hasattr(config, "inventory_native_supported_ecosystems"):
+        raise AssertionError("legacy internal capability field survived config migration")
+
+
+def assert_uv_optional_scope(tmp: Path) -> None:
+    """UV lock evidence must retain dev/optional scope from pyproject extras."""
+
+    root = tmp / "uv-optional-scope"
+    root.mkdir()
+    (root / "pyproject.toml").write_text(
+        """[project]
+name = "scope-fixture"
+version = "1.0.0"
+dependencies = ["runtime-package>=1"]
+
+[project.optional-dependencies]
+dev = ["vcrpy>=6"]
+browser = ["playwright>=1"]
+"""
+    )
+    (root / "uv.lock").write_text(
+        """version = 1
+
+[[package]]
+name = "runtime-package"
+version = "1.0.0"
+
+[[package]]
+name = "vcrpy"
+version = "8.1.1"
+
+[[package]]
+name = "playwright"
+version = "1.2.3"
+"""
+    )
+    records, _ = scan_package_records(root, ecosystems=["pypi"], include_installed=False)
+    by_name = {item["normalized_name"]: item for item in records if item["source_type"] == "uv-lockfile"}
+    scopes = {name: item.get("install_scope") for name, item in by_name.items()}
+    if scopes != {"playwright": "optional", "runtime-package": "prod", "vcrpy": "dev"}:
+        raise AssertionError(f"UV direct dependency scope mismatch: {scopes}")
+    if _version_specific_manifest_scope("undeclared", {"dev_only": True}) != "test":
+        raise AssertionError("direct dev-only UV dependency was not mapped to test scope")
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="guardian-m4-") as raw_tmp:
         tmp = Path(raw_tmp)
@@ -297,6 +357,8 @@ def main() -> int:
         assert_tolerant_lock_parsers(tmp)
         assert_hygiene_performance(tmp)
         assert_version_ordering()
+        assert_legacy_config_upgrade()
+        assert_uv_optional_scope(tmp)
     print("milestone 4 tests passed")
     return 0
 

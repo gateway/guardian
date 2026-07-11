@@ -65,6 +65,7 @@ def package_remediation_queue(enriched: list[dict]) -> list[dict]:
                     "direct_dependency": package["direct_dependency"],
                     "manifest_scope": package["manifest_scope"],
                     "manifest_paths": package["manifest_paths"],
+                    "occurrences": package.get("occurrences", []),
                     "usage_by_kind": package["usage_by_kind"],
                     "usage": package["usage"],
                     "usage_hit_count": package["usage_hit_count"],

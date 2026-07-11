@@ -64,7 +64,7 @@ For each high-signal finding, Repo Scout adds:
 The reporting path can be:
 
 - `Public PR OK`: no policy or duplicate signal blocks a focused PR.
-- `Open issue first`: contribution docs suggest discussion or an issue before a PR.
+- `Open issue first`: contribution docs require discussion, or the bounded scout pass did not verify a fixed package target for a dependency PR.
 - `Private security advisory only`: security policy asks that vulnerability reports stay private.
 - `Do not report, already tracked`: a matching open PR or issue already exists.
 

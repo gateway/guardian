@@ -78,6 +78,8 @@ def build_operator_view(
                 "environment_label": package.get("environment_label"),
                 "role_label": package.get("role_label"),
                 "highest_severity": package.get("highest_severity"),
+                "first_fixed_version": package.get("first_fixed_version"),
+                "recommended_clean_version": package.get("recommended_clean_version"),
                 "reason": (package.get("issue_summaries") or [None])[0],
                 "advisory_ids": package.get("advisory_sources", [])[:4],
                 "advisory_links": package.get("advisory_links", [])[:4],

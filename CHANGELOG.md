@@ -2,6 +2,25 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.5.1 - 2026-07-11
+
+### Fixed
+
+- Upgraded installations no longer let a persisted pre-1.4 npm/PyPI capability list disable the Go, Rust, and Composer inventory parsers shipped by the current plugin.
+- Native inventory capabilities are now owned by the running Guardian release instead of mutable user configuration.
+- UV lock inventory now preserves production, development, and optional scopes from `pyproject.toml` instead of treating every direct extra as production.
+- Triage now honors exact-version development scope for direct dev dependencies as well as transitive dev packages.
+- Operator and handoff reports now retain occurrence evidence through triage, so manifest, lockfile, and installed-tree corroboration flags reflect the files Guardian actually scanned.
+- Python `dist-info` and `egg-info` occurrences are recognized as installed-tree corroboration in operator evidence boxes.
+- Repo Scout now carries fixed/clean target evidence into compact output and routes findings without a verified target to focused validation or issue-first discussion before inviting a dependency PR.
+
+### Verified
+
+- A regression fixture loads the legacy two-ecosystem configuration and successfully selects native inventory for all five supported ecosystems.
+- A UV-lock regression fixture proves development-only and optional packages retain their project scopes.
+- The reporting fixture proves remediation queue shaping cannot discard manifest and lockfile occurrence evidence.
+- The installed-plugin project runner scans an existing upgraded Guardian state without editing its configuration or the target repository.
+
 ## 1.5.0 - 2026-07-11
 
 ### Added

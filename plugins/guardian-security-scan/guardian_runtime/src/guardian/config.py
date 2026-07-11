@@ -41,9 +41,6 @@ class GuardianConfig:
     threat_intel_cache_dir: str = str(STATE_DIR / "source_cache")
     vendored_watchlist_path: str = str(STATE_DIR / "vendored_packages.json")
     inventory_engine: str = "guardian-native"
-    inventory_native_supported_ecosystems: List[str] = field(
-        default_factory=lambda: ["npm", "pypi", "go", "crates.io", "packagist"]
-    )
     request_timeout_seconds: int = 20
     http_max_retries: int = 2
     http_cache_ttl_seconds: int = 21600
@@ -81,7 +78,7 @@ class GuardianConfig:
     epss_api_url: str = "https://api.first.org/data/v1/epss"
     epss_high_percentile: float = 0.95
     epss_high_score: float = 0.2
-    user_agent: str = "guardian/1.5.0"
+    user_agent: str = "guardian/1.5.1"
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "GuardianConfig":
