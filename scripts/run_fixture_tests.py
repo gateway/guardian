@@ -42,10 +42,12 @@ from guardian.config import GuardianConfig  # noqa: E402
 from guardian.advisories import refresh_findings  # noqa: E402
 from guardian.db import Database  # noqa: E402
 from guardian.http_client import GuardianHttp  # noqa: E402
+import guardian.http_client as http_client_module  # noqa: E402
 from guardian.inventory import scan_roots  # noqa: E402
 from guardian.sources.kev import KEVClient  # noqa: E402
 from guardian.sources.osv import OSVClient  # noqa: E402
 from guardian.signals import SignalGrade, grade_to_posture  # noqa: E402
+from guardian.source_contract import live_source_contract  # noqa: E402
 from guardian.triage_rules import _issue_signal_grade  # noqa: E402
 from guardian.triage_queue import package_remediation_queue  # noqa: E402
 
@@ -197,6 +199,18 @@ def assert_requirements_fixture(tmp: Path) -> None:
 def assert_install_script_drift(tmp: Path) -> None:
     """A newly added install script should alert once, then remain quiet."""
 
+    initial_root = tmp / "install-script-first-scan"
+    shutil.copytree(tmp / "install-script-drift", initial_root)
+    initial_lockfile = initial_root / "package-lock.json"
+    initial_payload = json.loads(initial_lockfile.read_text())
+    initial_payload["packages"]["node_modules/fixture-package"]["hasInstallScript"] = True
+    initial_lockfile.write_text(json.dumps(initial_payload, indent=2) + "\n")
+    initial = run_guardian(initial_root, tmp / "state-install-script-first", compact=False, mode="standard")
+    initial_signals = initial.get("behavioral_signals") or []
+    first_seen = [item for item in initial_signals if item.get("signal_type") == "new-dep-with-install-script"]
+    if len(first_seen) != 1 or first_seen[0].get("signal_grade") != "info" or first_seen[0].get("posture") is not None:
+        raise AssertionError(f"first-scan install script should be informational: {initial_signals}")
+
     root = tmp / "install-script-drift"
     state = tmp / "state-install-script"
     baseline = run_guardian(root, state)
@@ -283,13 +297,17 @@ def assert_http_client_hardening(tmp: Path) -> None:
     """Shared HTTP behavior must cache, revalidate, retry, and bound timeouts."""
 
     class Handler(BaseHTTPRequestHandler):
-        counts = {"cached": 0, "retry": 0, "rate": 0, "timeout": 0, "osv": 0}
+        counts = {"cached": 0, "stale": 0, "retry": 0, "rate": 0, "timeout": 0, "osv": 0}
 
         def do_GET(self):  # noqa: N802 - stdlib handler API
             key = self.path.strip("/")
             type(self).counts[key] = type(self).counts.get(key, 0) + 1
             if key == "cached" and self.headers.get("If-None-Match") == '"fixture-v1"':
                 self.send_response(304)
+                self.end_headers()
+                return
+            if key == "stale" and type(self).counts[key] > 1:
+                self.send_response(503)
                 self.end_headers()
                 return
             if key == "retry" and type(self).counts[key] == 1:
@@ -372,6 +390,36 @@ def assert_http_client_hardening(tmp: Path) -> None:
         revalidated = GuardianHttp(revalidate_config).get(f"{base}/cached")
         if not revalidated.from_cache or not revalidated.revalidated or revalidated.bytes_downloaded != 0:
             raise AssertionError(f"conditional 304 did not serve cached bytes: {revalidated}")
+
+        GuardianHttp(config).get(f"{base}/stale")
+        stale_client = GuardianHttp(revalidate_config)
+        stale = stale_client.get(f"{base}/stale")
+        if not stale.from_cache or not stale.stale or not stale.warning or stale.error or stale.json()["path"] != "stale":
+            raise AssertionError(f"failed revalidation did not serve verified stale cache: {stale}")
+        stale_contract = live_source_contract(
+            source_id="fixture",
+            status="cached",
+            http_stats=stale_client.stats(),
+        )
+        if stale_contract.get("stale") is not True or stale_contract.get("stale_cache_hits") != 1:
+            raise AssertionError(f"source contract hid stale fallback: {stale_contract}")
+
+        pace_config = GuardianConfig(
+            threat_intel_cache_dir=str(cache_dir),
+            api_request_min_interval_seconds=0.25,
+        )
+        pace_client = GuardianHttp(pace_config)
+        http_client_module._LAST_REQUEST_BY_HOST.clear()
+        http_client_module._LAST_REQUEST_BY_HOST["slow.invalid"] = time.monotonic()
+        slow_thread = threading.Thread(target=pace_client._pace, args=("https://slow.invalid/data",))
+        slow_thread.start()
+        time.sleep(0.03)
+        unrelated_started = time.perf_counter()
+        pace_client._pace("https://other.invalid/data")
+        unrelated_elapsed = time.perf_counter() - unrelated_started
+        slow_thread.join()
+        if unrelated_elapsed >= 0.1:
+            raise AssertionError(f"host pacing lock blocked an unrelated host for {unrelated_elapsed:.3f}s")
 
         client = GuardianHttp(config)
         if client.get(f"{base}/retry", cache=False).error or Handler.counts["retry"] != 2:

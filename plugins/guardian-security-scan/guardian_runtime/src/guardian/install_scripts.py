@@ -18,6 +18,7 @@ def detect_install_script_changes(db: Database, root_path: str) -> list[dict]:
 
     observations = _current_observations(db, root_path)
     signals: list[dict] = []
+    has_baseline = db.has_prior_inventory_run(root_path)
     for observation in observations:
         exact = db.install_script_state(
             root_path,
@@ -33,7 +34,12 @@ def detect_install_script_changes(db: Database, root_path: str) -> list[dict]:
             observation["evidence_source"],
             exclude_version=observation["version"],
         )
-        signal = _compare_observation(observation, exact=exact, previous=previous)
+        signal = _compare_observation(
+            observation,
+            exact=exact,
+            previous=previous,
+            has_baseline=has_baseline,
+        )
         if signal is not None:
             signals.append(signal)
         db.upsert_install_script_state(observation)
@@ -144,7 +150,7 @@ def _evidence_source(source_type: str | None) -> str:
     return source_type or "unknown"
 
 
-def _compare_observation(observation: dict, *, exact, previous) -> dict | None:
+def _compare_observation(observation: dict, *, exact, previous, has_baseline: bool) -> dict | None:
     current_has = observation.get("has_install_script")
     if exact is not None:
         old_has = _nullable_bool(exact["has_install_script"])
@@ -160,7 +166,8 @@ def _compare_observation(observation: dict, *, exact, previous) -> dict | None:
             return _signal("install-script-added", SignalGrade.BEHAVIORAL_HIGH, observation, previous)
         return None
     if current_has is True:
-        return _signal("new-dep-with-install-script", SignalGrade.BEHAVIORAL_WATCH, observation, None)
+        grade = SignalGrade.BEHAVIORAL_WATCH if has_baseline else SignalGrade.INFO
+        return _signal("new-dep-with-install-script", grade, observation, None)
     return None
 
 

@@ -41,7 +41,7 @@
       "size": 18519
     }
   ],
-  "plugin_version": "1.5.2",
+  "plugin_version": "1.6.0",
   "remote_base_url": "https://raw.githubusercontent.com/gateway/guardian/main/plugins/guardian-security-scan/data/local_catalogs",
   "schema_version": "1.0"
 }

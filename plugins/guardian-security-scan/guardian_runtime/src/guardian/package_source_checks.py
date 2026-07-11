@@ -38,7 +38,9 @@ def registry_metadata(
         ),
         http_max_retries=0,
     )
-    result = GuardianHttp(request_config).get(url)
+    # A versionless lookup is mutable registry state and must not inherit a stale
+    # "latest" response. Exact package-version metadata remains cacheable.
+    result = GuardianHttp(request_config).get(url, cache=bool(version))
     if result.error:
         return None, {"status": "error", "network": True, "error": result.error}
     try:

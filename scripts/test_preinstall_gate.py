@@ -33,20 +33,22 @@ class SourceHandler(BaseHTTPRequestHandler):
     """Serve fixed registry and OSV responses without external network access."""
 
     request_count = 0
+    latest_version = "1.0.0"
 
     def do_GET(self) -> None:  # noqa: N802
         type(self).request_count += 1
         package = self.path.split("/")[2] if self.path.startswith(("/npm/", "/pypi/")) else ""
         package = package.replace("%40", "@").replace("%2F", "/")
+        latest = type(self).latest_version if "moving-latest" in package else "1.0.0"
         if self.path.startswith("/npm/"):
-            payload = {"name": package, "version": "1.0.0"}
+            payload = {"name": package, "version": latest}
             if "scripted" in package:
                 payload["scripts"] = {"postinstall": "node setup.js"}
         else:
             files = [{"packagetype": "sdist"}] if "sdist-only" in package else [{"packagetype": "bdist_wheel"}]
             payload = {
-                "info": {"name": package, "version": "1.0.0"},
-                "releases": {"1.0.0": files},
+                "info": {"name": package, "version": latest},
+                "releases": {latest: files},
                 "urls": files,
             }
         self._send(payload)
@@ -106,37 +108,59 @@ def assert_command_parser() -> None:
         "npm i lodash": ("npm", "lodash"),
         "npm add @types/node@22": ("npm", "@types/node"),
         "pnpm add zod": ("npm", "zod"),
+        "pnpm add -w evil-pkg": ("npm", "evil-pkg"),
+        "pnpm --filter web add evil-pkg": ("npm", "evil-pkg"),
+        "pnpm add --filter web evil-pkg": ("npm", "evil-pkg"),
         "pnpm install react": ("npm", "react"),
         "yarn add vite": ("npm", "vite"),
+        "bun add evil-pkg": ("npm", "evil-pkg"),
+        "bun add --filter web evil-pkg": ("npm", "evil-pkg"),
+        "bun install evil-pkg": ("npm", "evil-pkg"),
+        "bunx evil-pkg": ("npm", "evil-pkg"),
+        "bun x evil-pkg": ("npm", "evil-pkg"),
+        "npm exec -- evil-pkg": ("npm", "evil-pkg"),
+        "npx evil-pkg": ("npm", "evil-pkg"),
+        "pnpx evil-pkg": ("npm", "evil-pkg"),
+        "pnpm dlx evil-pkg": ("npm", "evil-pkg"),
+        "yarn dlx evil-pkg": ("npm", "evil-pkg"),
         "npm install --save-dev vitest": ("npm", "vitest"),
         "npm install --registry https://registry.npmjs.org react": ("npm", "react"),
         "FOO=1 npm i express": ("npm", "express"),
         "sudo npm install chalk": ("npm", "chalk"),
         "pip install requests==2.32.4": ("pypi", "requests"),
         "pip3 install flask": ("pypi", "flask"),
+        "pipenv install evil-pkg": ("pypi", "evil-pkg"),
         "python -m pip install django": ("pypi", "django"),
         "python3 -m pip install fastapi": ("pypi", "fastapi"),
+        "python3.12 -m pip install evil-pkg": ("pypi", "evil-pkg"),
         "uv add httpx": ("pypi", "httpx"),
         "uv pip install pydantic": ("pypi", "pydantic"),
         "poetry add sqlalchemy": ("pypi", "sqlalchemy"),
         "pip install 'requests[security]==2.32.4'": ("pypi", "requests"),
         "npm i react && pip install requests": ("npm", "react"),
         "command npm i commander": ("npm", "commander"),
+        "sh -c 'npm install shell-pkg'": ("npm", "shell-pkg"),
+        "bash -lc 'python3.12 -m pip install shell-python-pkg'": ("pypi", "shell-python-pkg"),
         "env BAR=2 yarn add eslint": ("npm", "eslint"),
         "uv add --dev pytest": ("pypi", "pytest"),
         "poetry add 'black==25.1.0'": ("pypi", "black"),
         "npm install --workspace web react": ("npm", "react"),
+        "npm --prefix dir install evil-pkg": ("npm", "evil-pkg"),
+        "npm --package-lock install evil-pkg": ("npm", "evil-pkg"),
     }
     for command, expected in cases.items():
         requests = extract_install_requests(command)
         if not requests or (requests[0].ecosystem, requests[0].name) != expected:
             raise AssertionError(f"install parser mismatch for {command!r}: {requests}")
-    for command in ("npm install", "npm ci", "yarn install", "pip install -r requirements.txt", "echo npm install react"):
+    for command in ("npm install", "npm ci", "yarn install", "bun install", "pip install -r requirements.txt", "echo npm install react"):
         if extract_install_requests(command):
             raise AssertionError(f"non-addition command should be ignored: {command}")
     opaque = extract_install_requests("pip install git+https://github.com/example/pkg.git")
     if len(opaque) != 1 or not opaque[0].opaque_reason:
         raise AssertionError(f"VCS install should require review: {opaque}")
+    alias = extract_install_requests("yarn add pkg@npm:other-pkg@1.0.0")
+    if len(alias) != 1 or (alias[0].name, alias[0].version) != ("other-pkg", "1.0.0"):
+        raise AssertionError(f"npm alias should check the real package and pinned version: {alias}")
     chained = extract_install_requests("npm i react&&python -m pip install requests")
     if [(item.ecosystem, item.name) for item in chained] != [("npm", "react"), ("pypi", "requests")]:
         raise AssertionError(f"unspaced shell operators were not segmented: {chained}")
@@ -187,6 +211,15 @@ def assert_package_checks(config: GuardianConfig, db: Database) -> None:
     if cold["verdict"] != "allow" or cold["elapsed_seconds"] >= 3 or not warm["cache_hit"] or time.perf_counter() - warm_started >= 1:
         raise AssertionError(f"clean package cache contract failed: cold={cold} warm={warm}")
 
+    SourceHandler.latest_version = "1.0.0"
+    first_latest = check_package(config, db, "npm", "moving-latest")
+    SourceHandler.latest_version = "2.0.0"
+    second_latest = check_package(config, db, "npm", "moving-latest")
+    if first_latest["resolved_version"] != "1.0.0" or second_latest["resolved_version"] != "2.0.0":
+        raise AssertionError(f"versionless check reused stale latest metadata: {first_latest}, {second_latest}")
+    if second_latest["cache_hit"]:
+        raise AssertionError(f"versionless check reused a cached verdict: {second_latest}")
+
     refreshed_catalog = Path(config.local_catalog_dirs[0]) / "test-refresh.json"
     refreshed_catalog.write_text(json.dumps({"entries": [{
         "id": "test-new-malicious-react", "ecosystem": "npm", "package": "react",
@@ -227,6 +260,20 @@ def assert_hook_decisions(config: GuardianConfig, db: Database) -> None:
     blocked = evaluate_install_command(config, db, "npm i @beproduct/nestjs-auth@0.1.18")
     if blocked["decision"] != "deny" or not hook_output(blocked):
         raise AssertionError(f"malicious install was not denied: {blocked}")
+    bypass_regressions = (
+        "pnpm add -w @beproduct/nestjs-auth@0.1.18",
+        "pnpm --filter web add @beproduct/nestjs-auth@0.1.18",
+        "npm --prefix web install @beproduct/nestjs-auth@0.1.18",
+        "bun add @beproduct/nestjs-auth@0.1.18",
+        "bun x @beproduct/nestjs-auth@0.1.18",
+        "pipenv install vulnerable==1.0.0",
+        "python3.12 -m pip install vulnerable==1.0.0",
+        "sh -c 'npm install @beproduct/nestjs-auth@0.1.18'",
+    )
+    for command in bypass_regressions:
+        result = evaluate_install_command(config, db, command)
+        if not result["requests"] or result["decision"] != "deny":
+            raise AssertionError(f"install syntax bypassed the hook decision: {command}: {result}")
     advisory = evaluate_install_command(config, db, "npm i vulnerable@1.0.0")
     if advisory["decision"] != "deny":
         raise AssertionError(f"known vulnerable install was not paused: {advisory}")

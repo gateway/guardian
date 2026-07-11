@@ -10,12 +10,22 @@ from .util import parse_npm_spec
 
 
 SHELL_SEPARATORS = {"&&", "||", ";", "|", "\n"}
+SHELL_COMMANDS = {"bash", "dash", "sh", "zsh"}
+MAX_SHELL_RECURSION = 3
 VALUE_FLAGS = {
     "--abi", "--cache", "--config", "--constraint", "--cwd", "--directory",
-    "--extra-index-url", "--implementation", "--index", "--index-url", "--package-lock",
+    "--extra-index-url", "--implementation", "--index", "--index-url",
     "--platform", "--prefix", "--project", "--python", "--registry", "--root",
     "--save-prefix", "--source", "--src", "--target", "--timeout", "--upgrade-strategy",
     "--user-agent", "--userconfig", "--workspace", "-C", "-c", "-i", "-w",
+}
+BOOLEAN_FLAGS_BY_MANAGER = {
+    "npm": {"--package-lock"},
+    "pnpm": {"-w", "--workspace-root"},
+}
+VALUE_FLAGS_BY_MANAGER = {
+    "bun": {"--filter"},
+    "pnpm": {"--filter"},
 }
 SKIP_PREFIXES = (".", "/", "file:", "git+", "git://", "github:", "http://", "https://", "ssh:")
 
@@ -34,6 +44,12 @@ class InstallRequest:
 def extract_install_requests(command: str) -> list[InstallRequest]:
     """Return package additions from supported npm and Python install syntaxes."""
 
+    return _extract_install_requests(command, depth=0)
+
+
+def _extract_install_requests(command: str, *, depth: int) -> list[InstallRequest]:
+    """Parse one command string while bounding nested shell wrappers."""
+
     try:
         lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=";&|")
         lexer.whitespace_split = True
@@ -43,7 +59,7 @@ def extract_install_requests(command: str) -> list[InstallRequest]:
         return [InstallRequest("unknown", None, None, command, "shell command could not be parsed safely")]
     requests: list[InstallRequest] = []
     for segment in _segments(tokens):
-        requests.extend(_parse_segment(segment))
+        requests.extend(_parse_segment(segment, depth=depth))
     return requests
 
 
@@ -62,22 +78,57 @@ def _segments(tokens: list[str]) -> list[list[str]]:
     return segments
 
 
-def _parse_segment(tokens: list[str]) -> list[InstallRequest]:
+def _parse_segment(tokens: list[str], *, depth: int) -> list[InstallRequest]:
     tokens = _strip_prefixes(tokens)
     if not tokens:
         return []
     command = tokens[0].rsplit("/", 1)[-1]
     args = tokens[1:]
+    if command in SHELL_COMMANDS and len(args) >= 2 and args[0] in {"-c", "-lc"}:
+        if depth >= MAX_SHELL_RECURSION:
+            return [InstallRequest(
+                "unknown",
+                None,
+                None,
+                args[1],
+                "nested shell command exceeded Guardian's safe parsing depth",
+            )]
+        return _extract_install_requests(args[1], depth=depth + 1)
     ecosystem: str | None = None
     specs: list[str] = []
 
-    if command in {"npm", "pnpm"} and args and args[0] in {"add", "i", "install"}:
-        ecosystem, specs = "npm", args[1:]
-    elif command == "yarn" and args and args[0] == "add":
-        ecosystem, specs = "npm", args[1:]
+    if command in {"npm", "pnpm"}:
+        matched = _args_after_subcommand(args, {"add", "i", "install"}, manager=command)
+        if matched is not None:
+            ecosystem, specs = "npm", matched
+        else:
+            execution_commands = {"exec"} if command == "npm" else {"dlx"}
+            matched = _args_after_subcommand(args, execution_commands, manager=command)
+            if matched is not None:
+                ecosystem, specs = "npm", _execution_specs(matched, manager=command)
+    elif command == "yarn":
+        matched = _args_after_subcommand(args, {"add"}, manager=command)
+        if matched is not None:
+            ecosystem, specs = "npm", matched
+        else:
+            matched = _args_after_subcommand(args, {"dlx"}, manager=command)
+            if matched is not None:
+                ecosystem, specs = "npm", _execution_specs(matched, manager=command)
+    elif command == "bun":
+        matched = _args_after_subcommand(args, {"add", "install"}, manager=command)
+        if matched is not None:
+            ecosystem, specs = "npm", matched
+        else:
+            matched = _args_after_subcommand(args, {"x"}, manager=command)
+            if matched is not None:
+                ecosystem, specs = "npm", _execution_specs(matched, manager=command)
     elif command in {"pip", "pip3"} and args and args[0] == "install":
         ecosystem, specs = "pypi", args[1:]
-    elif command in {"python", "python3"} and len(args) >= 3 and args[:3] == ["-m", "pip", "install"]:
+    elif command == "pipenv":
+        matched = _args_after_subcommand(args, {"install"}, manager=command)
+        if matched is not None:
+            ecosystem, specs = "pypi", matched
+    elif re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", command) and len(args) >= 3 and args[:3] == ["-m", "pip", "install"]:
         ecosystem, specs = "pypi", args[3:]
     elif command == "uv" and args:
         if args[0] == "add":
@@ -86,9 +137,58 @@ def _parse_segment(tokens: list[str]) -> list[InstallRequest]:
             ecosystem, specs = "pypi", args[2:]
     elif command == "poetry" and args and args[0] == "add":
         ecosystem, specs = "pypi", args[1:]
+    elif command in {"bunx", "npx", "pnpx"}:
+        ecosystem, specs = "npm", _execution_specs(args, manager=command)
     if ecosystem is None:
         return []
-    return [_parse_spec(ecosystem, spec) for spec in _package_specs(specs)]
+    return [_parse_spec(ecosystem, spec) for spec in _package_specs(specs, manager=command)]
+
+
+def _args_after_subcommand(
+    args: list[str],
+    subcommands: set[str],
+    *,
+    manager: str,
+) -> list[str] | None:
+    """Locate an install subcommand after valid manager options."""
+
+    boolean_flags = BOOLEAN_FLAGS_BY_MANAGER.get(manager, set())
+    value_flags = VALUE_FLAGS | VALUE_FLAGS_BY_MANAGER.get(manager, set())
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in subcommands:
+            return args[index + 1 :]
+        if token in boolean_flags or (token.startswith("-") and "=" in token):
+            index += 1
+            continue
+        if token in value_flags:
+            index += 2
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        return None
+    return None
+
+
+def _execution_specs(args: list[str], *, manager: str) -> list[str]:
+    """Return only package selectors, excluding arguments for the executed tool."""
+
+    explicit: list[str] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in {"-p", "--package"} and index + 1 < len(args):
+            explicit.append(args[index + 1])
+            index += 2
+            continue
+        if token.startswith("--package="):
+            explicit.append(token.split("=", 1)[1])
+        index += 1
+    if explicit:
+        return explicit
+    return _package_specs(args, manager=manager)[:1]
 
 
 def _strip_prefixes(tokens: list[str]) -> list[str]:
@@ -106,8 +206,9 @@ def _strip_prefixes(tokens: list[str]) -> list[str]:
     return tokens[index:]
 
 
-def _package_specs(tokens: list[str]) -> list[str]:
+def _package_specs(tokens: list[str], *, manager: str) -> list[str]:
     specs: list[str] = []
+    manager_value_flags = VALUE_FLAGS_BY_MANAGER.get(manager, set())
     skip_next = False
     index = 0
     while index < len(tokens):
@@ -120,7 +221,10 @@ def _package_specs(tokens: list[str]) -> list[str]:
             skip_next = True
             index += 1
             continue
-        if token in VALUE_FLAGS:
+        if token in BOOLEAN_FLAGS_BY_MANAGER.get(manager, set()):
+            index += 1
+            continue
+        if token in VALUE_FLAGS or token in manager_value_flags:
             skip_next = True
             index += 1
             continue
@@ -137,6 +241,12 @@ def _package_specs(tokens: list[str]) -> list[str]:
 
 
 def _parse_spec(ecosystem: str, spec: str) -> InstallRequest:
+    if ecosystem == "npm" and "@npm:" in spec:
+        _alias, real_spec = spec.split("@npm:", 1)
+        name, version = parse_npm_spec(real_spec)
+        if name:
+            return InstallRequest(ecosystem, name, version, spec)
+        return InstallRequest(ecosystem, None, None, spec, "npm alias could not be resolved safely")
     if spec.startswith(SKIP_PREFIXES) or " @ " in spec or spec.startswith(("git@", "npm:")):
         return InstallRequest(ecosystem, None, None, spec, "direct URL, VCS, alias, or local-path dependency")
     if ecosystem == "npm":

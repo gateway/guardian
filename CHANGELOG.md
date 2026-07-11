@@ -2,6 +2,26 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.0 - 2026-07-11
+
+### Added
+
+- Pre-install interception for Bun, Pipenv, versioned Python interpreters, npm/pnpm/Yarn/Bun package execution commands, manager flags before or after install subcommands, npm aliases, and bounded nested shell wrappers.
+- Explicit stale-cache result state for hash-verified HTTP fallback after failed revalidation.
+
+### Fixed
+
+- pnpm `-w` no longer consumes the following package as a workspace value.
+- Versionless package checks always resolve the registry's current `latest` version instead of reusing a 24-hour empty-version verdict.
+- Per-host pacing no longer blocks requests to unrelated hosts while one host waits.
+- Existing lifecycle scripts found on a first scan are informational instead of being presented as newly introduced watch items.
+
+### Verified
+
+- Parser and live-hook regression matrices cover every previously confirmed bypass and require vulnerable or malicious fixture requests to reach a deny decision.
+- Deterministic fixtures prove latest-version changes are observed, exact-version verdict caching remains active, first-scan script noise is downgraded, post-baseline script drift remains prioritized, stale cache is explicit, and cross-host pacing is independent.
+- Any exact-version OSV vulnerability continues to pause installation for review by policy; network failure remains fail-open with visible incomplete coverage.
+
 ## 1.5.2 - 2026-07-11
 
 ### Fixed

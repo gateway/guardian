@@ -287,7 +287,7 @@ Guardian is designed to be lightweight for local agent workflows and scheduled s
 - Daily watch skips unchanged dependency inventories.
 - Unchanged daily-watch roots make zero registry-intelligence calls; standard scans skip registry enumeration on the first baseline.
 - Live-source requests share bounded retry, pacing, and conditional disk caching so large feeds are not downloaded again while fresh.
-- Pre-install package verdicts are cached in SQLite for 24 hours by default; repeat checks are normally sub-second and consume no model reasoning unless evidence needs explanation.
+- Exact-version pre-install verdicts are cached in SQLite for 24 hours by default; versionless checks always refresh the registry's current `latest` version.
 - Live advisory refresh and installed-tree corroboration are explicit options.
 - Repo Scout uses bounded, paced scans for large public repos.
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings.

@@ -40,6 +40,8 @@ class HttpResult:
     attempts: int
     bytes_downloaded: int
     error: str | None = None
+    stale: bool = False
+    warning: str | None = None
 
     def json(self) -> Any:
         if self.error:
@@ -59,6 +61,7 @@ class GuardianHttp:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.requests = 0
         self.cache_hits = 0
+        self.stale_cache_hits = 0
         self.revalidations = 0
         self.bytes_downloaded = 0
 
@@ -140,6 +143,16 @@ class GuardianHttp:
                     break
                 self._backoff(attempt, None)
 
+        if cache_entry:
+            self.cache_hits += 1
+            self.stale_cache_hits += 1
+            return self._cached_result(
+                cache_entry,
+                revalidated=False,
+                attempts=attempts_used,
+                stale=True,
+                warning=last_error or f"revalidation failed for {url}",
+            )
         return HttpResult(
             status=None,
             body=b"",
@@ -155,6 +168,7 @@ class GuardianHttp:
         return {
             "requests": self.requests,
             "cache_hits": self.cache_hits,
+            "stale_cache_hits": self.stale_cache_hits,
             "revalidations": self.revalidations,
             "bytes_downloaded": self.bytes_downloaded,
             "from_cache": self.cache_hits > 0,
@@ -165,11 +179,13 @@ class GuardianHttp:
         if interval <= 0:
             return
         host = urlsplit(url).netloc.lower()
+        now = time.monotonic()
         with _PACE_LOCK:
-            elapsed = time.monotonic() - _LAST_REQUEST_BY_HOST.get(host, 0.0)
-            if elapsed < interval:
-                time.sleep(interval - elapsed)
-            _LAST_REQUEST_BY_HOST[host] = time.monotonic()
+            scheduled_at = max(now, _LAST_REQUEST_BY_HOST.get(host, 0.0) + interval)
+            _LAST_REQUEST_BY_HOST[host] = scheduled_at
+        delay = scheduled_at - now
+        if delay > 0:
+            time.sleep(delay)
 
     def _backoff(self, attempt: int, retry_after: str | None) -> None:
         delay = _retry_after_seconds(retry_after)
@@ -216,7 +232,14 @@ class GuardianHttp:
         _atomic_write(metadata_path, json.dumps(updated, sort_keys=True).encode("utf-8"))
 
     @staticmethod
-    def _cached_result(entry: tuple[dict, bytes], *, revalidated: bool, attempts: int) -> HttpResult:
+    def _cached_result(
+        entry: tuple[dict, bytes],
+        *,
+        revalidated: bool,
+        attempts: int,
+        stale: bool = False,
+        warning: str | None = None,
+    ) -> HttpResult:
         metadata, body = entry
         return HttpResult(
             status=304 if revalidated else 200,
@@ -229,6 +252,8 @@ class GuardianHttp:
             revalidated=revalidated,
             attempts=attempts,
             bytes_downloaded=0,
+            stale=stale,
+            warning=warning,
         )
 
 

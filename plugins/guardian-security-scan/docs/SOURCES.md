@@ -20,9 +20,9 @@ Guardian inventories npm, PyPI, Go modules, crates.io packages, and Packagist pa
 
 ## Request Reliability
 
-Guardian routes runtime HTTP traffic through one standard-library client. Requests use bounded retries with backoff, honor server rate-limit delays, and share per-host pacing. GET feeds and registry metadata use a local soft-TTL cache with `ETag` and `Last-Modified` revalidation; POST-based package queries are not cached.
+Guardian routes runtime HTTP traffic through one standard-library client. Requests use bounded retries with backoff, honor server rate-limit delays, and share per-host pacing without blocking unrelated hosts. GET feeds and exact-version registry metadata use a local soft-TTL cache with `ETag` and `Last-Modified` revalidation; mutable versionless `latest` lookups and POST-based package queries are not cached.
 
-Source status reports whether a response came from cache, whether it was revalidated, and how many bytes were downloaded. A source that remains unavailable is reported as an error while the rest of the scan continues. Guardian preserves existing findings when their source cannot be refreshed.
+Source status reports whether a response came from cache, whether it was revalidated or served stale after failed revalidation, and how many bytes were downloaded. Stale fallback uses only hash-verified cache bodies and carries an explicit warning. A source that remains unavailable without usable cache is reported as an error while the rest of the scan continues. Guardian preserves existing findings when their source cannot be refreshed.
 
 Default cache policy:
 

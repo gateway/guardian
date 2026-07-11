@@ -33,6 +33,7 @@ def live_source_contract(
     http_stats: dict | None = None,
 ) -> dict:
     errors = []
+    stale_cache_hits = int((http_stats or {}).get("stale_cache_hits") or 0)
     if error:
         errors.append(error)
     if skipped_reason:
@@ -49,10 +50,11 @@ def live_source_contract(
         "records_read": records_read,
         "matches": matches,
         "errors": errors,
-        "stale": None,
+        "stale": stale_cache_hits > 0,
         "parser": None,
         "from_cache": bool((http_stats or {}).get("from_cache")),
         "cache_hits": int((http_stats or {}).get("cache_hits") or 0),
+        "stale_cache_hits": stale_cache_hits,
         "revalidations": int((http_stats or {}).get("revalidations") or 0),
         "bytes_downloaded": int((http_stats or {}).get("bytes_downloaded") or 0),
     }

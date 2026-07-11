@@ -11,7 +11,7 @@ For each proposed package, Guardian checks in this order:
 3. Registry metadata for the concrete version, including npm lifecycle scripts or a PyPI release that only ships a source distribution.
 4. One bounded OSV query for the concrete package version.
 
-Complete results are cached in local SQLite for 24 hours by default. Repeat checks normally avoid network calls.
+Complete results for exact requested versions are cached in local SQLite for 24 hours by default. Repeat exact-version checks normally avoid network calls. Versionless requests always resolve the registry's current `latest` version and do not reuse a cached verdict or cached mutable `latest` response.
 
 When a prior project scan already cached fresh exact-version registry intelligence, the gate reuses it before making a registry request. New registry observations invalidate older package verdicts for the same exact version.
 
@@ -37,7 +37,7 @@ An `allow` verdict is not a claim that a package is free of unknown zero-days.
 
 ## Agent Hook
 
-The plugin registers a `PreToolUse` hook for supported shell package additions. It recognizes common npm, pnpm, Yarn, pip, uv, and Poetry forms, including multiple packages and shell command segments.
+The plugin registers a `PreToolUse` hook for supported shell package additions. It recognizes common npm, pnpm, Yarn, Bun, pip, Pipenv, uv, and Poetry forms, including manager flags before the subcommand, versioned Python executables, npm aliases, package-execution commands (`npx`, `npm exec`, `pnpx`, `pnpm dlx`, `yarn dlx`, `bunx`, and `bun x`), multiple packages, shell command segments, and bounded `sh`/`bash`/`zsh -c` wrappers.
 
 The hook:
 
@@ -47,6 +47,8 @@ The hook:
 - allows an install with a visible warning when live sources are unavailable.
 
 Requirements-file installs and package-manager restore commands such as `npm ci` are not expanded by the hook. Scan the resolved project inventory afterward for those workflows.
+
+Any published OSV vulnerability for the concrete requested version pauses the hook for review, regardless of advisory severity. This is intentional: installing a version already known to be vulnerable requires an explicit agent decision. Exact malicious-package evidence remains the stronger hard-block signal.
 
 Codex and Claude Code both load the bundled hook declaration. Hook availability still depends on the host exposing the relevant shell `PreToolUse` event, so Guardian skills also require an explicit check before adding dependencies.
 
@@ -76,4 +78,5 @@ Set `preinstall_gate_enabled` to `false` to bypass package checks cleanly. The h
 - The gate cannot detect unpublished zero-days or malicious code absent from its evidence sources.
 - Registry lifecycle scripts are behavioral review evidence, not proof of malware.
 - Direct URL, VCS, alias, and local-path installs cannot be verified as normal registry package versions.
+- Shell recursion is deliberately bounded, and arbitrary shell evaluation is out of scope.
 - A network outage produces incomplete coverage and a fail-open warning rather than blocking all development.

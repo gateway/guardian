@@ -45,7 +45,7 @@ The database stores inventory runs, current package state, advisory records, fin
 
 Guardian also stores install-script and lockfile-hygiene observations by project and evidence identity. This history lets it distinguish unchanged behavior from newly introduced install scripts, unapproved resolved hosts, direct references, or same-version integrity drift.
 
-Pre-install checks cache complete package verdicts by ecosystem, normalized name, and requested version. Incomplete network results are not cached as clean verdicts.
+Pre-install checks cache complete exact-version verdicts by ecosystem, normalized name, and requested version. Versionless requests always resolve the registry's mutable `latest` value and are not verdict-cached. Incomplete network results are not cached as clean verdicts.
 
 The database is what lets Guardian answer operational questions across runs:
 
@@ -149,7 +149,7 @@ Scan-time typo checks follow snapshot discipline: they run only for names first 
 
 ## Pre-Install Boundary
 
-The package gate prioritizes local evidence, then performs bounded registry and OSV checks. Exact malicious-catalog evidence blocks by default. Typosquat, known-vulnerability, and opaque source signals require review. Source outages fail open with an explicit warning so offline development is not disabled.
+The package gate prioritizes local evidence, then performs bounded registry and OSV checks. Exact malicious-catalog evidence blocks by default. Typosquat, opaque source, and any exact-version OSV vulnerability signal require review regardless of advisory severity. Source outages fail open with an explicit warning so offline development is not disabled.
 
 The hook reduces accidental agent installs but is not a sandbox. Host support for shell `PreToolUse` interception can vary, requirements files are not expanded by the hook, and unknown installers may bypass it. Skill instructions therefore retain an explicit package-check step as defense in depth.
 
@@ -157,7 +157,7 @@ The hook reduces accidental agent installs but is not a sandbox. Host support fo
 
 All runtime advisory and registry HTTP requests use Guardian's shared standard-library client. It applies per-host pacing, bounded exponential-backoff retries for rate limits and transient server failures, honors `Retry-After`, and uses a consistent user agent.
 
-GET responses are cached under the local Guardian source cache. Fresh responses are served without a network request. Stale responses are conditionally revalidated with `ETag` or `Last-Modified`; a `304 Not Modified` response reuses the saved body. Operator source status includes cache hits, revalidations, and downloaded byte counts.
+GET responses are cached under the local Guardian source cache. Fresh responses are served without a network request. Stale responses are conditionally revalidated with `ETag` or `Last-Modified`; a `304 Not Modified` response reuses the saved body. If revalidation fails, Guardian may serve the hash-verified stale body with explicit `stale` and `warning` state rather than silently treating it as fresh. Operator source status includes cache hits, stale fallback, revalidations, and downloaded byte counts.
 
 POST queries such as OSV package batches are not cached because the response depends on the request body. If a required source remains unavailable after retries, Guardian records a source error and completes with degraded coverage. It does not resolve previously known findings merely because a source failed.
 

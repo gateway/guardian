@@ -50,6 +50,7 @@ def check_package(
     requested_version = (version or "").strip()
     normalized_name = normalize_package_name(ecosystem, name)
     cache_key_version = requested_version
+    cacheable_request = bool(requested_version)
     if not config.preinstall_gate_enabled:
         return _finalize(
             ecosystem=ecosystem,
@@ -66,12 +67,16 @@ def check_package(
         )
 
     cache_context = package_cache_context(config, db, ecosystem, normalized_name, requested_version)
-    cached = db.cached_package_verdict(
-        ecosystem,
-        normalized_name,
-        cache_key_version,
-        ttl_seconds=config.preinstall_gate_cache_ttl_seconds,
-        cache_context=cache_context,
+    cached = (
+        db.cached_package_verdict(
+            ecosystem,
+            normalized_name,
+            cache_key_version,
+            ttl_seconds=config.preinstall_gate_cache_ttl_seconds,
+            cache_context=cache_context,
+        )
+        if cacheable_request
+        else None
     )
     if cached is not None:
         cached["elapsed_seconds"] = round(time.perf_counter() - started, 4)
@@ -104,7 +109,8 @@ def check_package(
             started=started,
             cache_context=cache_context,
         )
-        db.upsert_package_verdict(ecosystem, normalized_name, cache_key_version, payload)
+        if cacheable_request:
+            db.upsert_package_verdict(ecosystem, normalized_name, cache_key_version, payload)
         return payload
 
     source_errors = False
@@ -162,7 +168,8 @@ def check_package(
             started=started,
             cache_context=cache_context,
         )
-        db.upsert_package_verdict(ecosystem, normalized_name, cache_key_version, payload)
+        if cacheable_request:
+            db.upsert_package_verdict(ecosystem, normalized_name, cache_key_version, payload)
         return payload
 
     if resolved_version and _remaining(started, budget) > 0:
@@ -212,7 +219,7 @@ def check_package(
         started=started,
         cache_context=cache_context,
     )
-    if not source_errors or verdict == "block":
+    if cacheable_request and (not source_errors or verdict == "block"):
         db.upsert_package_verdict(ecosystem, normalized_name, cache_key_version, payload)
     return payload
 

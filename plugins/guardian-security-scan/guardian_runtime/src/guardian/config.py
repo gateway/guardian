@@ -78,7 +78,7 @@ class GuardianConfig:
     epss_api_url: str = "https://api.first.org/data/v1/epss"
     epss_high_percentile: float = 0.95
     epss_high_score: float = 0.2
-    user_agent: str = "guardian/1.5.2"
+    user_agent: str = "guardian/1.6.0"
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "GuardianConfig":
