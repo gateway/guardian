@@ -77,6 +77,9 @@ python3 "$REPO_ROOT/scripts/test_catalog_intel.py"
 echo "== registry intelligence =="
 python3 "$REPO_ROOT/scripts/test_registry_intel.py"
 
+echo "== milestone 4 ecosystems and lockfile hygiene =="
+python3 "$REPO_ROOT/scripts/test_milestone4.py"
+
 echo "== local Codex marketplace install =="
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin marketplace add "$REPO_ROOT" >/tmp/guardian-marketplace-add.txt
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin list --marketplace guardian >/tmp/guardian-marketplace-list.txt

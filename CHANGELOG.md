@@ -2,6 +2,29 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.4.0 - 2026-07-11
+
+### Added
+
+- Offline npm, pnpm, and Yarn resolved-host inspection with configurable approved registry hosts.
+- Same-package/version integrity drift detection across npm, Go, Rust, and Composer lock evidence.
+- Aggregated Python requirements hygiene for unpinned entries, newly introduced direct URLs/VCS sources, and inconsistent hash mode.
+- Native Go module, Rust crates.io, and Composer Packagist inventory with exact OSV ecosystem mapping.
+- Go module-graph context that keeps non-direct `go.sum` findings from being presented as direct runtime exposure.
+
+### Changed
+
+- Guardian's default inventory now includes npm, PyPI, Go, crates.io, and Packagist without running project package managers.
+- Version comparison now follows semver prerelease ordering and handles Go pseudo-version timestamp ordering without third-party packages.
+- Lockfile hygiene observations use a local SQLite ledger so unchanged scans do not repeat behavioral alerts.
+
+### Verified
+
+- Deterministic OSV fixtures produce findings for vulnerable Go and Rust versions.
+- Rogue-host and same-version integrity fixtures each emit one high signal, while unchanged repeats emit none.
+- npm JSON, pnpm, Yarn, Python requirements, Go, Cargo, and Composer parsing are covered by the Milestone 4 suite.
+- The offline hygiene pass completes below 100 ms for a 600-package fixture.
+
 ## 1.3.0 - 2026-07-11
 
 ### Added

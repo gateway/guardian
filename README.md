@@ -1,6 +1,6 @@
 # Guardian
 
-Guardian is a local-first security plugin for AI coding agents. It helps Codex and Claude Code scan npm and Python projects for known package risk, explain what matters, and avoid unnecessary dependency churn.
+Guardian is a local-first security plugin for AI coding agents. It helps Codex and Claude Code scan npm, Python, Go, Rust, and Composer projects for known package risk, explain what matters, and avoid unnecessary dependency churn.
 
 Use Guardian when you want your agent to answer: "Is this project carrying known dependency risk, what changed since the last scan, and what should we do next?"
 
@@ -8,9 +8,10 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 
 ## What Guardian Does
 
-- Inventories npm and Python dependency evidence from manifests, lockfiles, and optional installed metadata.
+- Inventories npm, Python, Go, Rust, and Composer dependency evidence from manifests, lockfiles, and optional installed metadata.
 - Matches exact package versions against vulnerability, exploit-intelligence, and malicious-package sources.
 - Detects when a dependency newly gains install-time behavior, including npm lifecycle scripts and selected Python source-install evidence.
+- Detects unapproved npm lockfile hosts, same-version integrity drift, direct dependency URLs, and incomplete Python pin/hash hygiene without network access.
 - Reviews newly adopted registry versions for recent publication, maintainer drift, disappeared provenance, deprecation/yanking, and repository changes.
 - Checks proposed packages before installation, including probable typosquats, published advisories, install behavior, and exact malicious-catalog matches.
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.

@@ -53,6 +53,7 @@ def normalize_ecosystem_for_osv(ecosystem: str) -> str:
         "npm": "npm",
         "pypi": "PyPI",
         "go": "Go",
+        "crates.io": "crates.io",
         "rubygems": "RubyGems",
         "packagist": "Packagist",
     }
@@ -66,6 +67,7 @@ def normalize_ecosystem_for_ghsa(ecosystem: str) -> str:
         "npm": "npm",
         "pypi": "pip",
         "go": "go",
+        "crates.io": "rust",
         "rubygems": "rubygems",
         "packagist": "composer",
     }

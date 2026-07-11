@@ -175,6 +175,15 @@ class InventoryStoreMixin:
             )
         )
 
+    def has_prior_inventory_run(self, root_path: str) -> bool:
+        """Return whether the root has a completed baseline before its latest run."""
+
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS run_count FROM inventory_runs WHERE root_path = ? AND status = 'complete'",
+            (root_path,),
+        ).fetchone()
+        return bool(row and int(row["run_count"]) > 1)
+
     def new_package_names_for_runs(self, root_path: str, run_ids: list[int]) -> List[sqlite3.Row]:
         """Return package names first introduced by the supplied inventory runs."""
 

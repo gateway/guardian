@@ -1,0 +1,4 @@
+golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d h1:net-module-checksum
+golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d/go.mod h1:net-mod-checksum
+golang.org/x/text v0.3.7 h1:text-module-checksum
+golang.org/x/text v0.3.7/go.mod h1:text-mod-checksum

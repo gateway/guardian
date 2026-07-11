@@ -1,0 +1,7 @@
+{
+  "name": "guardian-lockfile-hygiene-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "safe-package": "1.0.0"
+  }
+}

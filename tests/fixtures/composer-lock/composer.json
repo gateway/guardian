@@ -1,0 +1,6 @@
+{
+  "name": "guardian/composer-fixture",
+  "require": {
+    "symfony/http-foundation": "2.7.0"
+  }
+}

@@ -10,6 +10,9 @@ from typing import Iterable
 from guardian.config import GuardianConfig
 from guardian.util import read_ndjson, slugify, write_json
 
+from .cargo import parse_cargo_lock
+from .composer import parse_composer_lock
+from .golang import parse_go_mod, parse_go_sum
 from .npm import parse_node_package_json, parse_package_json_manifest, parse_package_lock, parse_pnpm_lock, parse_yarn_lock
 from .pypi import parse_pyproject_manifest, parse_python_metadata, parse_requirements_manifest, parse_uv_lock
 from .walker import PYTHON_REQUIREMENTS_PATTERN
@@ -70,6 +73,15 @@ def scan_package_records(
                 records.extend(parse_requirements_manifest(path, root_path))
             elif include_installed and path.name in {"METADATA", "PKG-INFO"}:
                 records.extend(parse_python_metadata(path, root_path))
+        if "go" in selected:
+            if path.name == "go.mod":
+                records.extend(parse_go_mod(path, root_path))
+            elif path.name == "go.sum":
+                records.extend(parse_go_sum(path, root_path))
+        if "crates.io" in selected and path.name == "Cargo.lock":
+            records.extend(parse_cargo_lock(path, root_path))
+        if "packagist" in selected and path.name == "composer.lock":
+            records.extend(parse_composer_lock(path, root_path))
         for record in records[before:]:
             source_type = record.get("source_type") or "unknown"
             evidence_kind = record.get("evidence_kind") or "unknown"

@@ -239,12 +239,12 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Implement lockfile parsers' hygiene pass (npm JSON lockfiles first; pnpm YAML and yarn.lock via tolerant line-scanning — no YAML dependency).
-- [ ] Snapshot integrity hashes per (name, version) into `package_state.raw_json` or a slim new column; diff between runs.
-- [ ] Config: `allowed_registry_hosts` list in `GuardianConfig`.
-- [ ] Wire signals into triage + reports with snapshot discipline.
-- [ ] Fixtures: lockfile with a rogue `resolved` host; same-version-different-integrity double scan; requirements file mixing pinned/unpinned.
-- [ ] Docs: TRUST_MODEL — what tamper checks prove and what they can't.
+- [x] Implement lockfile parsers' hygiene pass (npm JSON lockfiles first; pnpm YAML and yarn.lock via tolerant line-scanning — no YAML dependency).
+- [x] Snapshot integrity hashes per (name, version) into `package_state.raw_json` or a slim new column; diff between runs.
+- [x] Config: `allowed_registry_hosts` list in `GuardianConfig`.
+- [x] Wire signals into triage + reports with snapshot discipline.
+- [x] Fixtures: lockfile with a rogue `resolved` host; same-version-different-integrity double scan; requirements file mixing pinned/unpinned.
+- [x] Docs: TRUST_MODEL — what tamper checks prove and what they can't.
 
 **Acceptance:** fully offline; adds <100ms to a 600-package scan; rogue-host fixture flags exactly one finding.
 
@@ -277,21 +277,21 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Design:**
 
-- Parsers (stdlib text parsing, no TOML dependency concerns — Python 3.11+ has `tomllib` for `Cargo.lock` which is TOML; use it, it's stdlib):
+- Parsers use narrow standard-library text/JSON readers so Guardian retains compatibility with its supported Python runtimes without adding parser dependencies:
   - Go: `go.mod` (direct deps + `// indirect` markers) and `go.sum` (exact versions). Ecosystem `Go` in OSV; module path is the package name.
-  - Rust: `Cargo.lock` via `tomllib` (`[[package]]` name/version/source/checksum). Ecosystem `crates.io`. Checksum field feeds WS6 tamper diffing for free.
+  - Rust: `Cargo.lock` (`[[package]]` name/version/source/checksum). Ecosystem `crates.io`. Checksum field feeds WS6 tamper diffing for free.
   - Phase 2: `composer.lock` (JSON, trivial) → `Packagist`.
 - Extend `dependency_files.dependency_file_kind()` with the new kinds; extend `inventory_native/` with `golang.py`, `cargo.py`; add to `inventory_native_supported_ecosystems` default; map ecosystems in `util.normalize_ecosystem_for_osv`.
 - Triage: `go.sum` contains the full module graph including test-only deps — mark Go findings `module-graph` confidence (analogous to existing transitive labeling) unless the module appears in `go.mod` directly.
 
 **Tasks:**
 
-- [ ] Go parser + fixtures (`tests/fixtures/go-module/`) with a known-vulnerable pinned module version.
-- [ ] Rust parser + fixtures (`tests/fixtures/cargo-lock/`) with checksum data exercised by WS6.
-- [ ] OSV ecosystem mapping + `versions.py` comparison handling for Go pseudo-versions (`v0.0.0-20230101...-abcdef`) and semver crates.
-- [ ] Wire into triage context labels (direct vs module-graph) and reports.
-- [ ] Update README, SOURCES.md, plugin descriptions (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` keywords/description) to say npm/Python/Go/Rust.
-- [ ] Composer as a follow-up task once Go/Rust pass fixtures.
+- [x] Go parser + fixtures (`tests/fixtures/go-module/`) with a known-vulnerable pinned module version.
+- [x] Rust parser + fixtures (`tests/fixtures/cargo-lock/`) with checksum data exercised by WS6.
+- [x] OSV ecosystem mapping + `versions.py` comparison handling for Go pseudo-versions (`v0.0.0-20230101...-abcdef`) and semver crates.
+- [x] Wire into triage context labels (direct vs module-graph) and reports.
+- [x] Update README, SOURCES.md, plugin descriptions (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` keywords/description) to say npm/Python/Go/Rust.
+- [x] Composer as a follow-up task once Go/Rust pass fixtures.
 
 **Acceptance:** fixture scans produce advisory matches for the pinned vulnerable versions via OSV; Go test-only module findings are labeled, not shouted.
 

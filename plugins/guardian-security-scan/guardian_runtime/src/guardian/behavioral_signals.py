@@ -5,6 +5,7 @@ from __future__ import annotations
 from .config import GuardianConfig
 from .db import Database
 from .install_scripts import detect_install_script_changes
+from .lockfile_hygiene import detect_lockfile_hygiene
 from .registry_intel import detect_registry_metadata_changes
 from .typosquat import detect_new_package_typosquats
 
@@ -22,6 +23,7 @@ def behavioral_signals_for_runs(
     if registry_intel_mode not in {"off", "changed", "deep"}:
         raise ValueError(f"unsupported registry_intel_mode: {registry_intel_mode}")
     signals = detect_install_script_changes(db, root)
+    signals.extend(detect_lockfile_hygiene(config, db, root))
     signals.extend(detect_new_package_typosquats(db, root, run_ids))
     if registry_intel_mode == "off":
         registry = {

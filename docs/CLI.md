@@ -80,6 +80,14 @@ Run optional direct OpenSSF malicious-package ingest for the current inventory:
 
 Standard scans inspect registry metadata only for versions introduced after a prior inventory. Use `--include-registry-intel` to add that behavior to daily mode, or use `--mode deep` for a bounded baseline plus OpenSSF ingest.
 
+Project scans include npm, PyPI, Go, crates.io, and Packagist evidence by default. Restrict inventory with repeatable `--ecosystem` values when needed:
+
+```bash
+guardian scan /path/to/repo --ecosystem go --ecosystem crates.io --json
+```
+
+Set `allowed_registry_hosts` in Guardian's local `config.json` when an npm project intentionally resolves packages from a private registry. Unknown npm hosts remain a high behavioral signal.
+
 Scout a public GitHub repo with temporary state:
 
 ```bash

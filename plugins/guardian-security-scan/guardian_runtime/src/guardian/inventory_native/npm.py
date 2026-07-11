@@ -93,6 +93,9 @@ def parse_package_lock(path: Path, root: Path) -> list[dict]:
                     evidence_kind="lockfile",
                     raw_metadata={
                         "lockfile_version": payload.get("lockfileVersion"),
+                        "resolved": item.get("resolved"),
+                        "integrity": item.get("integrity"),
+                        "direct_reference": _is_direct_reference(item.get("version"), item.get("resolved")),
                         "has_install_script": bool(item.get("hasInstallScript")),
                         "install_script_kinds": [],
                         "install_script_evidence_source": "package-lock",
@@ -135,6 +138,9 @@ def _walk_v1_dependencies(
                 install_scope=scope,
                 evidence_kind="lockfile",
                 raw_metadata={
+                    "resolved": item.get("resolved"),
+                    "integrity": item.get("integrity"),
+                    "direct_reference": _is_direct_reference(item.get("version"), item.get("resolved")),
                     "has_install_script": bool(item.get("hasInstallScript")),
                     "install_script_kinds": [],
                     "install_script_evidence_source": "package-lock",
@@ -330,6 +336,12 @@ def parse_pnpm_lock(path: Path, root: Path) -> list[dict]:
                 evidence_kind="lockfile",
                 raw_metadata={
                     "requires_build": current_fields.get("requiresBuild") == "true",
+                    "resolved": _pnpm_resolution_value(current_fields.get("resolution"), "tarball"),
+                    "integrity": _pnpm_resolution_value(current_fields.get("resolution"), "integrity"),
+                    "direct_reference": _is_direct_reference(
+                        version,
+                        _pnpm_resolution_value(current_fields.get("resolution"), "tarball"),
+                    ),
                     "has_install_script": None,
                     "install_script_kinds": [],
                     "install_script_evidence_source": "pnpm-lock",
@@ -403,6 +415,8 @@ def parse_yarn_lock(path: Path, root: Path) -> list[dict]:
     records: list[dict] = []
     current_header: str | None = None
     current_version: str | None = None
+    current_resolved: str | None = None
+    current_integrity: str | None = None
 
     def flush() -> None:
         if not current_header or not current_version:
@@ -426,6 +440,9 @@ def parse_yarn_lock(path: Path, root: Path) -> list[dict]:
                 evidence_kind="vendored-metadata" if vendored else "lockfile",
                 vendored_metadata=vendored,
                 raw_metadata={
+                    "resolved": current_resolved,
+                    "integrity": current_integrity,
+                    "direct_reference": _is_direct_reference(current_header, current_resolved),
                     "has_install_script": None,
                     "install_script_kinds": [],
                     "install_script_evidence_source": "yarn-lock",
@@ -440,9 +457,15 @@ def parse_yarn_lock(path: Path, root: Path) -> list[dict]:
             flush()
             current_header = line.rstrip()[:-1].strip().strip('"')
             current_version = None
+            current_resolved = None
+            current_integrity = None
             continue
         if current_header and line.lstrip().startswith("version "):
             current_version = line.strip().split(" ", 1)[1].strip().strip('"')
+        elif current_header and line.lstrip().startswith("resolved "):
+            current_resolved = line.strip().split(" ", 1)[1].strip().strip('"')
+        elif current_header and line.lstrip().startswith("integrity "):
+            current_integrity = line.strip().split(" ", 1)[1].strip().strip('"')
     flush()
     return records
 
@@ -456,3 +479,23 @@ def _package_name_from_yarn_header(header: str) -> str | None:
         return first[:at] if at > slash else first
     at = first.find("@")
     return first[:at] if at > 0 else first or None
+
+
+def _pnpm_resolution_value(value: str | None, key: str) -> str | None:
+    """Read a scalar from pnpm's common inline resolution map."""
+
+    if not value:
+        return None
+    match = re.search(rf"(?:^|[,{{]\s*){re.escape(key)}:\s*['\"]?([^,}}'\"]+)", value)
+    return match.group(1).strip() if match else None
+
+
+def _is_direct_reference(version: object, resolved: object) -> bool:
+    """Identify explicit git/URL/path specs without flagging normal registry tarballs."""
+
+    values = [str(item or "").lower() for item in (version, resolved)]
+    return any(
+        value.startswith(("git+", "git://", "github:", "file:", "link:"))
+        or (value.startswith(("http://", "https://")) and "registry.npmjs.org" not in value and "registry.yarnpkg.com" not in value)
+        for value in values
+    )

@@ -41,7 +41,7 @@ def refresh_findings(
     package_rows = [
         dict(row)
         for row in db.current_packages()
-        if row["ecosystem"] in {"npm", "pypi", "go", "rubygems", "packagist"}
+        if row["ecosystem"] in {"npm", "pypi", "go", "crates.io", "rubygems", "packagist"}
         and (not root_paths or row["root_path"] in root_paths)
     ]
     packages = _unique_package_versions(package_rows)

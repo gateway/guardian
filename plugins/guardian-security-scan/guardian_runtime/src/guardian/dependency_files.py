@@ -49,6 +49,18 @@ def dependency_file_kind(path: Path) -> str:
         return "uv-lock"
     if name == "pyproject.toml":
         return "python-manifest"
+    if name == "go.mod":
+        return "go-manifest"
+    if name == "go.sum":
+        return "go-lock"
+    if name == "Cargo.toml":
+        return "cargo-manifest"
+    if name == "Cargo.lock":
+        return "cargo-lock"
+    if name == "composer.json":
+        return "composer-manifest"
+    if name == "composer.lock":
+        return "composer-lock"
     if PYTHON_REQUIREMENTS_PATTERN.match(name):
         return "python-requirements"
     if name in {"METADATA", "PKG-INFO"}:

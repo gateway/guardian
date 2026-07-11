@@ -2,7 +2,7 @@
 
 This is the installable Guardian plugin bundle for Codex and Claude Code.
 
-Guardian scans npm and Python project dependency evidence in read-only mode, matches exact package versions against advisory and exploit-intelligence sources, and returns a compact operator summary for the agent.
+Guardian scans npm, Python, Go, Rust, and Composer dependency evidence in read-only mode, matches exact package versions against advisory and exploit-intelligence sources, and returns a compact operator summary for the agent.
 
 It also checks proposed npm and PyPI packages before installation through a bounded CLI and supported-agent hook, with local typosquat detection and exact malicious-package blocking.
 

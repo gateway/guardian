@@ -1,0 +1,14 @@
+{
+  "content-hash": "fixture",
+  "packages": [
+    {
+      "name": "symfony/http-foundation",
+      "version": "v2.7.0",
+      "dist": {
+        "url": "https://api.github.com/repos/symfony/http-foundation/zipball/fixture",
+        "shasum": "composer-checksum"
+      }
+    }
+  ],
+  "packages-dev": []
+}

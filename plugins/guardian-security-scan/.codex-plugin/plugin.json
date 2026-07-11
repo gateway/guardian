@@ -1,7 +1,7 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.3.0+codex.20260711060107",
-  "description": "Guardian scans npm and Python package risk, checks installs, and verifies malicious-package intelligence.",
+  "version": "1.4.0+codex.20260711062948",
+  "description": "Guardian scans npm, Python, Go, Rust, and Composer package risk and lockfile integrity.",
   "author": {
     "name": "Dreaming Computers",
     "url": "https://github.com/gateway"
@@ -16,6 +16,9 @@
     "vulnerability",
     "npm",
     "pypi",
+    "golang",
+    "rust",
+    "composer",
     "codex"
   ],
   "skills": "./skills/",
@@ -23,7 +26,7 @@
   "interface": {
     "displayName": "Guardian Security Scan",
     "shortDescription": "Scan project dependencies for known supply-chain risk.",
-    "longDescription": "Guardian gives Codex a practical dependency-risk workflow for modern projects. It checks proposed npm and Python packages before installation, inventories project dependencies, matches exact versions against advisory and exploit-intelligence sources, detects likely typosquats and new install behavior, separates credible runtime exposure from metadata noise, and tracks what changed between scans. Use it before package installs, releases, dependency changes, or evidence-backed remediation work.",
+    "longDescription": "Guardian gives Codex a practical dependency-risk workflow for npm, Python, Go, Rust, and Composer projects. It checks proposed npm and Python packages before installation, inventories exact dependency versions, matches advisory and exploit intelligence, detects lockfile tamper signals, separates credible exposure from metadata noise, and tracks changes between scans.",
     "developerName": "Dreaming Computers",
     "category": "Productivity",
     "capabilities": [

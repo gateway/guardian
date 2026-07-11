@@ -21,6 +21,9 @@ def _split_version(value: str) -> list[object]:
 
 
 def compare_versions(left: str, right: str) -> int:
+    semver_comparison = _compare_semver(left, right)
+    if semver_comparison is not None:
+        return semver_comparison
     if PackagingVersion is not None:
         try:
             left_version = PackagingVersion(left)
@@ -43,6 +46,47 @@ def compare_versions(left: str, right: str) -> int:
         if isinstance(left_value, int) and isinstance(right_value, int):
             return -1 if left_value < right_value else 1
         return -1 if str(left_value) < str(right_value) else 1
+    return 0
+
+
+_SEMVER_RE = re.compile(
+    r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$"
+)
+
+
+def _compare_semver(left: str, right: str) -> int | None:
+    """Compare npm/Rust semver and Go pseudo-versions without dependencies."""
+
+    left_match = _SEMVER_RE.match(left or "")
+    right_match = _SEMVER_RE.match(right or "")
+    if not left_match or not right_match:
+        return None
+    left_core = tuple(int(left_match.group(index)) for index in (1, 2, 3))
+    right_core = tuple(int(right_match.group(index)) for index in (1, 2, 3))
+    if left_core != right_core:
+        return -1 if left_core < right_core else 1
+    left_pre = left_match.group(4)
+    right_pre = right_match.group(4)
+    if left_pre is None or right_pre is None:
+        if left_pre == right_pre:
+            return 0
+        return 1 if left_pre is None else -1
+    left_parts = left_pre.split(".")
+    right_parts = right_pre.split(".")
+    for index in range(max(len(left_parts), len(right_parts))):
+        if index >= len(left_parts):
+            return -1
+        if index >= len(right_parts):
+            return 1
+        left_item = left_parts[index]
+        right_item = right_parts[index]
+        if left_item == right_item:
+            continue
+        if left_item.isdigit() and right_item.isdigit():
+            return -1 if int(left_item) < int(right_item) else 1
+        if left_item.isdigit() != right_item.isdigit():
+            return -1 if left_item.isdigit() else 1
+        return -1 if left_item < right_item else 1
     return 0
 
 

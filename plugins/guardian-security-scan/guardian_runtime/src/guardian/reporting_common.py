@@ -195,6 +195,9 @@ def package_evidence_context(package: dict) -> dict:
     elif environment == "lockfile-only":
         label = "Lockfile-only"
         summary = "Finding is present in lockfile evidence but is not currently corroborated by installed-tree metadata or code usage."
+    elif environment == "module-graph":
+        label = "Go module graph"
+        summary = "The module appears in go.sum but is not a direct go.mod requirement; review the parent module path before remediation."
     elif environment == "isolated-env":
         label = "Isolated environment"
         summary = "Finding is scoped to an isolated virtual environment or tooling environment."

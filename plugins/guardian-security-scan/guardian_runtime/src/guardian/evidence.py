@@ -27,7 +27,10 @@ def evidence_label_for_record(record: dict) -> str:
         return "isolated-environment"
     if source_type in {"npm-node_modules", "pypi-dist-info", "pypi-egg-info"}:
         return "installed-only"
-    if source_type in {"npm-lockfile", "pnpm-lockfile", "yarn-lockfile"}:
+    if source_type in {
+        "npm-lockfile", "pnpm-lockfile", "yarn-lockfile",
+        "go-sum-lockfile", "cargo-lockfile", "composer-lockfile",
+    }:
         if "/node_modules/" in source_file:
             return "installed-only"
         return "lockfile-only"

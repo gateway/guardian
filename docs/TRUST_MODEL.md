@@ -43,7 +43,7 @@ Guardian uses SQLite for local state. The default path is:
 
 The database stores inventory runs, current package state, advisory records, findings, triage snapshots, policy exceptions, remediation lifecycle data, exact-version registry metadata history, and cached pre-install verdicts. This state is created on the user's machine at runtime and is not included in the plugin repository.
 
-Guardian also stores install-script observations by project, ecosystem, package, version, and evidence source. This history lets it distinguish a package that has always required install-time behavior from a dependency update that newly introduced it.
+Guardian also stores install-script and lockfile-hygiene observations by project and evidence identity. This history lets it distinguish unchanged behavior from newly introduced install scripts, unapproved resolved hosts, direct references, or same-version integrity drift.
 
 Pre-install checks cache complete package verdicts by ecosystem, normalized name, and requested version. Incomplete network results are not cached as clean verdicts.
 
@@ -77,6 +77,16 @@ Local:
 - Previous scan snapshots and local remediation state in SQLite.
 
 This means a daily automation does not only test against a static database. It re-inventories the repo, refreshes configured live sources where enabled, checks local catalogs, then compares the new result to the prior SQLite snapshot.
+
+## Lockfile Tamper And Pinning Evidence
+
+Guardian inspects npm JSON lockfiles plus pnpm and Yarn lockfiles with tolerant line readers. It records exact integrity values and resolved locations, then compares stable package/version identities across scans. A changed hash at the same package version or an npm URL outside `allowed_registry_hosts` is graded `behavioral-high`. Direct URL/VCS dependencies are informational on the first baseline and become `behavioral-watch` when introduced later.
+
+Python requirements files are summarized rather than reported line by line. Guardian identifies unpinned entries, direct URL/VCS requirements, and inconsistent `--hash` usage. Go `go.sum`, Rust `Cargo.lock`, and Composer distribution checksums also feed same-version integrity drift detection.
+
+These checks prove only that committed dependency evidence changed or points somewhere unexpected. They do not validate downloaded artifact contents, prove a registry is trustworthy, or replace package-manager signature/provenance verification. Private npm registries must be added deliberately to `allowed_registry_hosts` to avoid a high signal.
+
+The hygiene pass is local and does not execute package managers or contact registries. The release fixture measures the pass against 600 package records and enforces a sub-100 ms budget.
 
 ## Catalog Verification And Integrity
 

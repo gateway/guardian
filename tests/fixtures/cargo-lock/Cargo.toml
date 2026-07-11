@@ -1,0 +1,6 @@
+[package]
+name = "guardian-cargo-fixture"
+version = "0.1.0"
+
+[dependencies]
+time = "=0.1.43"

@@ -29,11 +29,17 @@ LOCKFILE_NAMES = {
     "pnpm-lock.yaml",
     "yarn.lock",
     "uv.lock",
+    "go.sum",
+    "Cargo.lock",
+    "composer.lock",
 }
 
 PROJECT_MANIFEST_NAMES = {
     "package.json",
     "pyproject.toml",
+    "go.mod",
+    "Cargo.toml",
+    "composer.json",
 }
 
 PYTHON_REQUIREMENTS_PATTERN = re.compile(r"(^|[-_.])requirements([-_.].*)?\.txt$", re.IGNORECASE)

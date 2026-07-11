@@ -2,6 +2,8 @@
 
 Guardian combines live advisory APIs, local cache state, and bundled exact-match catalogs.
 
+Guardian inventories npm, PyPI, Go modules, crates.io packages, and Packagist packages. Go, Rust, and Composer use committed manifest/lockfile evidence; Guardian does not run their package managers.
+
 ## Source Matrix
 
 | Source | Contribution | Default freshness | Authentication |
@@ -34,7 +36,7 @@ Registry metadata also has a seven-day SQLite freshness TTL. The shared HTTP cac
 
 ## Offline Behavioral Evidence
 
-Guardian also evaluates install-time behavior from local project evidence. npm lockfiles can record `hasInstallScript`; installed package metadata can expose lifecycle script names and body hashes; selected Python source-install and direct-reference evidence is tracked conservatively. These signals do not call a registry and are graded separately from published advisories.
+Guardian also evaluates install-time and lockfile behavior from local project evidence. npm lockfiles can record `hasInstallScript`; installed package metadata can expose lifecycle script names and body hashes; selected Python source-install and direct-reference evidence is tracked conservatively. npm/pnpm/Yarn resolved hosts, package integrity values, Go/Rust/Composer checksums, and Python pin/hash consistency are evaluated offline and graded separately from published advisories.
 
 ## Popular-Package Name Snapshots
 

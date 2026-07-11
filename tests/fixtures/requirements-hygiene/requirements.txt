@@ -1,0 +1,3 @@
+pinned-package==1.0.0 --hash=sha256:aaaaaaaa
+range-package>=2.0
+unpinned-package

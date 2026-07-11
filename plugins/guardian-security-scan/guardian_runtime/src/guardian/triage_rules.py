@@ -383,6 +383,11 @@ def _environment_label(
         return "build-tooling"
     if role["role"] == "test-only" or usage_counts["test"] > 0:
         return "test-tooling"
-    if "npm-lockfile" in source_types and "npm-node_modules" not in source_types:
+    if "go-sum-lockfile" in source_types and not any(item.get("direct_dependency") for item in occurrences):
+        return "module-graph"
+    if source_types & {
+        "npm-lockfile", "pnpm-lockfile", "yarn-lockfile",
+        "go-sum-lockfile", "cargo-lockfile", "composer-lockfile",
+    }:
         return "lockfile-only"
     return "transitive-installed"

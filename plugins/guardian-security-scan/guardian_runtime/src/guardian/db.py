@@ -10,6 +10,7 @@ from .db_check_package import CheckPackageCacheMixin
 from .db_findings import FindingStoreMixin
 from .db_install_scripts import InstallScriptStoreMixin
 from .db_inventory import InventoryStoreMixin
+from .db_lockfile_hygiene import LockfileHygieneStoreMixin
 from .db_policy import PolicyStoreMixin
 from .db_registry import RegistryMetadataStoreMixin
 from .db_schema import SCHEMA, apply_additive_migrations
@@ -22,6 +23,7 @@ class Database(
     InventoryStoreMixin,
     FindingStoreMixin,
     InstallScriptStoreMixin,
+    LockfileHygieneStoreMixin,
     SnapshotStoreMixin,
     PolicyStoreMixin,
     RegistryMetadataStoreMixin,

@@ -8,7 +8,7 @@
     {
       "name": "guardian-security-scan",
       "source": "./plugins/guardian-security-scan",
-      "description": "Scan npm and Python package risk, check installs, and verify malicious-package intelligence.",
+      "description": "Scan npm, Python, Go, Rust, and Composer package risk and lockfile integrity.",
       "author": {
         "name": "Dreaming Computers",
         "url": "https://github.com/gateway"

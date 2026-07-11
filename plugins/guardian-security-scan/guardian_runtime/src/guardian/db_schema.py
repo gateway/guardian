@@ -139,6 +139,21 @@ CREATE TABLE IF NOT EXISTS registry_metadata_state (
 CREATE INDEX IF NOT EXISTS idx_registry_metadata_package
 ON registry_metadata_state(ecosystem, normalized_name, fetched_at DESC);
 
+CREATE TABLE IF NOT EXISTS lockfile_hygiene_state (
+  root_path TEXT NOT NULL,
+  observation_key TEXT NOT NULL,
+  evidence_hash TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  last_changed_at TEXT NOT NULL,
+  present INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY(root_path, observation_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lockfile_hygiene_present
+ON lockfile_hygiene_state(root_path, present);
+
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,

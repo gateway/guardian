@@ -11,7 +11,7 @@ from .inventory_native import scan_to_ndjson
 from .util import read_ndjson
 
 
-DEFAULT_ECOSYSTEMS = ("npm", "pypi")
+DEFAULT_ECOSYSTEMS = ("npm", "pypi", "go", "crates.io", "packagist")
 SUPPORTED_ENGINES = {"guardian-native"}
 
 
