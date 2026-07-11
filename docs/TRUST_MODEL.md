@@ -88,6 +88,16 @@ These checks prove only that committed dependency evidence changed or points som
 
 The hygiene pass is local and does not execute package managers or contact registries. The release fixture measures the pass against 600 package records and enforces a sub-100 ms budget.
 
+## Package Diet Evidence
+
+Package diet remains separate from vulnerability posture. It combines bounded static import usage with npm lockfile transitive counts and fresh registry metadata already present in SQLite. It does not make registry requests. When footprint data is absent, the report remains complete but labels itself usage-only.
+
+`Vendor Candidate` is intentionally stricter than a normal review suggestion: Guardian requires one to three usage locations, an exact locked version, a permissive license signal, pure-source lockfile evidence, no built-in native replacement recipe, and no native/security/framework exclusion. The agent must still verify the upstream license, preserve attribution and version provenance, write characterization tests first, and retain the upstream package/version on Guardian's vendored watchlist.
+
+## Outreach Boundary
+
+Guardian's outreach ledger is local SQLite state, not telemetry. It records one decision per repository/advisory/package and enforces `max_outreach_per_day`. The preflight uses optional `gh` calls for archive/default-branch and duplicate PR/issue evidence; unavailable checks stop at manual verification. No preflight, skill, or report is authorization to create external content. The final draft/diff must be shown to the human and explicitly confirmed first.
+
 ## Catalog Verification And Integrity
 
 Local exact-match entries can carry per-version OSV verification. `corroborated` means OSV/OpenSSF independently returned active malicious-package evidence for that exact package/version. `withdrawn` means the matching malicious record is withdrawn. `uncorroborated` means Guardian's local entry remains visible but OSV did not independently match it. An outage is `skipped`, not uncorroborated, and does not overwrite prior state.

@@ -2,6 +2,29 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.5.0 - 2026-07-11
+
+### Added
+
+- Offline npm lockfile transitive-count analysis and cached registry size/license/maintenance context for package diet.
+- A strict `Vendor Candidate` tier with permissive-license, pure-source, exact-version, attribution, test-first, and upstream-watch requirements.
+- Vendored package watch entries that continue exact-version advisory checks after a dependency is copied into local source.
+- `guardian outreach preflight` for archive, policy, open/closed PR/issue, default-branch, duplicate-ledger, and daily-cap checks.
+- `guardian outreach record` plus a durable SQLite `outreach_log` ledger and default five-action daily safety cap.
+
+### Changed
+
+- Package-diet scoring now weights cached unpacked size, transitive footprint, and maintenance-death evidence while degrading explicitly to usage-only offline.
+- Advisory-PR guidance requires the bundled preflight and a visible final diff/draft followed by explicit human confirmation before external outreach.
+- Missing GitHub or default-branch evidence stops outreach at manual verification instead of being treated as a clear check.
+
+### Verified
+
+- A 4 MB/two-call-site package ranks above a 10 KB package at equivalent usage.
+- Permissively licensed micro-packages become Vendor Candidates, while the equivalent GPL package remains Review.
+- Existing upstream tracking writes a suppressed ledger row and a repeated proposal is blocked across sessions.
+- Eligible outreach requires complete checks, and the configured daily cap suppresses additional proposals.
+
 ## 1.4.0 - 2026-07-11
 
 ### Added

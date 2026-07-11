@@ -70,6 +70,38 @@ The reporting path can be:
 
 This check is intentionally bounded to the high-signal package list. Use `--skip-upstream-check` for an offline or faster scout pass.
 
+## Outreach Safety Policy
+
+Repo Scout guidance is not permission to contact maintainers. Before drafting or opening anything, the advisory-PR workflow must run Guardian's durable preflight from a non-ephemeral local state:
+
+```bash
+guardian outreach preflight \
+  --repo owner/name \
+  --repo-dir /path/to/checkout \
+  --advisory-id GHSA-xxxx-xxxx-xxxx \
+  --package package-name \
+  --version 1.2.3 \
+  --json
+```
+
+The preflight checks open and closed PRs/issues, archived status, repository policy files, default-branch dependency evidence, Guardian's local outreach ledger, and the daily cap. If `gh` or a required check is unavailable, the result is `Verify manually before reporting`, not approval.
+
+Guardian records each proposed or suppressed repository/advisory/package identity in SQLite. A repeat preflight is blocked so agents cannot rediscover and re-propose the same outreach across sessions. `max_outreach_per_day` defaults to `5`; do not bypass it with alternate state directories.
+
+After Guardian shows the exact proposed diff and complete outreach draft, the human must explicitly confirm before any PR, issue, discussion, or private report is created. Record the result afterward:
+
+```bash
+guardian outreach record \
+  --repo owner/name \
+  --advisory-id GHSA-xxxx-xxxx-xxxx \
+  --package package-name \
+  --action public-pr \
+  --url https://github.com/owner/name/pull/123 \
+  --json
+```
+
+When `SECURITY.md` requests private disclosure, its channel overrides public PR/issue convenience.
+
 ## Large-Repo Handling
 
 Repo Scout now reports:

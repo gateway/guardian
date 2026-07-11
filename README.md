@@ -17,7 +17,7 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.
 - Tracks scans over time so you can see new, resolved, changed, and unchanged findings.
 - Produces compact operator JSON and optional Markdown handoff reports for agents, maintainers, and reviewers.
-- Includes a package-diet workflow for unused or replaceable dependencies.
+- Includes a package-diet workflow for unused, replaceable, or license-safe Vendor Candidate dependencies using lockfile footprint and cached maintenance evidence.
 - Helps prepare maintainer-friendly advisory PRs only when the evidence supports a real fix.
 
 Guardian does not edit dependency files, install project dependencies, or execute arbitrary project code during normal scans.
@@ -225,11 +225,11 @@ Use this for dependency bloat, unused packages, and "could simple local code rep
 
 Codex:
 
-> $guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
+> $guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused, replace-with-native, and license-safe Vendor Candidates. Include exact usage locations, lockfile transitive footprint, cached size/maintenance evidence, removal risk, attribution requirements, and tests needed before any change.
 
 Claude Code:
 
-> /guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused dependency candidates, packages used only in narrow/test/build contexts, and packages that could reasonably be replaced with simple local code. Include where each package is used and rate removal risk as low, medium, or high.
+> /guardian-security-scan:guardian-package-diet Analyze this repo for dependency bloat. Identify unused, replace-with-native, and license-safe Vendor Candidates. Include exact usage locations, lockfile transitive footprint, cached size/maintenance evidence, removal risk, attribution requirements, and tests needed before any change.
 
 ### `guardian-advisory-pr`
 
@@ -237,11 +237,11 @@ Use this after Guardian confirms an actionable finding and you want a maintainer
 
 Codex:
 
-> $guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
+> $guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, run Guardian's outreach preflight first. If it permits a public PR, prepare the exact diff and maintainer-friendly draft with advisory evidence, dependency path, code usage, fix risk, validation, and a short "Powered by Guardian" note. Show me the final draft and diff and wait for my explicit confirmation before creating anything.
 
 Claude Code:
 
-> /guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, prepare a maintainer-friendly PR plan that explains the vulnerable package/version, advisory links, dependency path, affected code usage, recommended fix, upgrade risk, validation steps, and a short "Powered by Guardian" note.
+> /guardian-security-scan:guardian-advisory-pr For this confirmed Guardian finding, run Guardian's outreach preflight first. If it permits a public PR, prepare the exact diff and maintainer-friendly draft with advisory evidence, dependency path, code usage, fix risk, validation, and a short "Powered by Guardian" note. Show me the final draft and diff and wait for my explicit confirmation before creating anything.
 
 ## Automation
 

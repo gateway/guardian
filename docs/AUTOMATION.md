@@ -26,7 +26,7 @@ Guardian keeps runtime state outside the plugin by default:
 ~/.guardian-security-scan/guardian.db
 ```
 
-The SQLite database stores package inventory rows, dependency-file fingerprints, advisory records, findings, triage snapshots, policy exceptions, remediation lifecycle data, registry observations, and pre-install verdicts.
+The SQLite database stores package inventory rows, dependency-file fingerprints, advisory records, findings, triage snapshots, policy exceptions, remediation lifecycle data, registry observations, pre-install verdicts, lockfile-hygiene observations, and the outreach ledger.
 
 Set `GUARDIAN_STATE_DIR` when you want isolated state for a workflow:
 

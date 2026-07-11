@@ -82,6 +82,7 @@ def normalize_npm_metadata(package_name: str, version: str, payload: dict) -> di
         "yanked": False,
         "repo_url": _repository_url(version_payload.get("repository") or payload.get("repository")),
         "size_bytes": _optional_int(dist.get("unpackedSize")),
+        "license": _license_value(version_payload.get("license") or payload.get("license")),
         "has_install_script": bool(set(scripts) & NPM_INSTALL_SCRIPTS),
         "fetched_at": utc_now(),
         "source": "npm-registry",
@@ -122,6 +123,7 @@ def normalize_pypi_metadata(package_name: str, version: str, payload: dict) -> d
         "yanked_reason": next((item.get("yanked_reason") for item in files if item.get("yanked_reason")), None),
         "repo_url": _repository_url(repo_url),
         "size_bytes": sum(_optional_int(item.get("size")) or 0 for item in files) or None,
+        "license": _license_value(info.get("license")),
         "has_install_script": None,
         "fetched_at": utc_now(),
         "source": "pypi-registry",
@@ -152,3 +154,12 @@ def _optional_int(value) -> int | None:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _license_value(value) -> str | None:
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        candidate = value.get("type")
+        return str(candidate).strip() if candidate else None
+    return None

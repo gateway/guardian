@@ -1,0 +1,9 @@
+{
+  "name": "package-diet-vendor-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "gpl-helper": "1.0.0",
+    "heavy-helper": "1.0.0",
+    "tiny-helper": "1.0.0"
+  }
+}

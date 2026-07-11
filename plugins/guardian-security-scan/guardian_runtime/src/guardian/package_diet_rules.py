@@ -1,13 +1,8 @@
-"""Heuristics that classify package-diet candidates by removal safety and replacement risk."""
+"""Package-diet classification and scoring with conservative replacement guardrails."""
 
 from __future__ import annotations
 
-"""Classification and scoring rules for Guardian package-diet reports.
-
-The rules intentionally favor review-safe recommendations over aggressive
-removal because dependency usage can be hidden behind CLIs, config, and dynamic
-runtime loading.
-"""
+import re
 
 
 DO_NOT_REIMPLEMENT = {
@@ -69,6 +64,14 @@ REPLACEMENT_RECIPES = {
     },
 }
 
+PERMISSIVE_LICENSE_PATTERNS = (
+    r"(?:^|[^A-Z0-9])MIT(?:$|[^A-Z0-9])",
+    r"(?:^|[^A-Z0-9])ISC(?:$|[^A-Z0-9])",
+    r"(?:^|[^A-Z0-9])BSD(?:-[0-9A-Z.-]+)?(?:$|[^A-Z0-9])",
+    r"(?:^|[^A-Z0-9])APACHE(?:-| )?2(?:\.0)?(?:$|[^A-Z0-9])",
+)
+COPYLEFT_LICENSE_MARKERS = ("GPL", "AGPL", "LGPL", "MPL", "EPL", "CDDL")
+
 
 def assess_package(package: dict, usage: dict, symbols: list[str]) -> dict:
     del symbols
@@ -124,6 +127,31 @@ def assess_package(package: dict, usage: dict, symbols: list[str]) -> dict:
             recipe["note"],
             recipe["example"],
         )
+    if _is_vendor_candidate(package, usage_count):
+        version = package.get("resolved_version") or package.get("specifier") or "unknown"
+        license_name = package.get("license") or "permissive license"
+        assessment = _assessment(
+            "Vendor Candidate",
+            "Medium",
+            "medium",
+            (
+                f"Only {usage_count} direct usage location(s) were found; the locked package is pure source "
+                f"under {license_name}, but Guardian has no safe native replacement recipe."
+            ),
+            (
+                f"Write characterization tests first, then extract only the used functions into "
+                f"`vendor/{_vendor_path(name)}/` with the {license_name} attribution, an upstream "
+                f"version `{version}` comment, and an upstream advisory watch entry."
+            ),
+        )
+        assessment["vendor_plan"] = {
+            "path": f"vendor/{_vendor_path(name)}/",
+            "license": license_name,
+            "upstream_version": version,
+            "requires_attribution": True,
+            "tests_before_swap": True,
+        }
+        return assessment
     if usage_count <= 2:
         return _assessment(
             "Review",
@@ -161,7 +189,7 @@ def apply_fanout_adjustment(package: dict) -> None:
     fanout = package.get("wrapper_fanout") or {}
     if int(fanout.get("max_hit_count") or 0) < 10:
         return
-    if package["classification"] not in {"Replace Candidate", "Review"}:
+    if package["classification"] not in {"Replace Candidate", "Vendor Candidate", "Review"}:
         return
     package["classification"] = "Review"
     package["confidence"] = "Medium"
@@ -177,6 +205,25 @@ def apply_fanout_adjustment(package: dict) -> None:
     package["local_example"] = None
 
 
+def apply_maintenance_adjustment(package: dict) -> None:
+    """Nudge non-exempt dead packages toward review without overriding safety guards."""
+
+    maintenance = package.get("maintenance") or {}
+    if not maintenance.get("maintenance_dead"):
+        return
+    if package["normalized_name"] in DO_NOT_REIMPLEMENT:
+        return
+    if package.get("specifier", "").startswith("workspace:") or package["normalized_name"].startswith("@types/"):
+        return
+    if package["classification"] == "Keep":
+        package["classification"] = "Review"
+        package["replacement_risk"] = "medium"
+        package["suggestion"] = (
+            "Review maintained alternatives or a tested local extraction; do not remove solely because publishing slowed."
+        )
+    package["reason"] = f"{package['reason']} {maintenance['reason']}"
+
+
 def bloat_score(package: dict) -> int:
     score = 0
     usage_count = int((package.get("usage") or {}).get("hit_count") or 0)
@@ -184,6 +231,8 @@ def bloat_score(package: dict) -> int:
         score += 55
     elif package["classification"] == "Replace Candidate":
         score += 45
+    elif package["classification"] == "Vendor Candidate":
+        score += 38
     elif package["classification"] == "Review":
         score += 25
     if package["scope"] == "runtime":
@@ -196,6 +245,25 @@ def bloat_score(package: dict) -> int:
         score += 10
     if package.get("local_example"):
         score += 15
+    footprint = package.get("footprint") or {}
+    size_bytes = footprint.get("size_bytes")
+    transitive_count = footprint.get("transitive_count")
+    if usage_count <= 2 and isinstance(size_bytes, int):
+        if size_bytes >= 4 * 1024 * 1024:
+            score += 22
+        elif size_bytes >= 1024 * 1024:
+            score += 14
+        elif size_bytes >= 256 * 1024:
+            score += 7
+    if usage_count <= 3 and isinstance(transitive_count, int):
+        if transitive_count >= 20:
+            score += 16
+        elif transitive_count >= 5:
+            score += 9
+        elif transitive_count == 0:
+            score += 5
+    if (package.get("maintenance") or {}).get("maintenance_dead"):
+        score += 10
     if int((package.get("wrapper_fanout") or {}).get("max_hit_count") or 0) >= 10:
         score -= 35
     if package["replacement_risk"] == "high":
@@ -211,6 +279,7 @@ def buckets(packages: list[dict]) -> dict[str, list[dict]]:
     grouped = {
         "remove_candidates": [],
         "replace_with_native": [],
+        "vendor_candidates": [],
         "review": [],
         "keep_do_not_reimplement": [],
     }
@@ -219,6 +288,8 @@ def buckets(packages: list[dict]) -> dict[str, list[dict]]:
             grouped["remove_candidates"].append(package)
         elif package["classification"] == "Replace Candidate":
             grouped["replace_with_native"].append(package)
+        elif package["classification"] == "Vendor Candidate":
+            grouped["vendor_candidates"].append(package)
         elif package["classification"] == "Review":
             grouped["review"].append(package)
         elif _is_high_risk_keep(package):
@@ -239,8 +310,9 @@ def priority_rank(classification: str) -> int:
     return {
         "Unused Candidate": 0,
         "Replace Candidate": 1,
-        "Review": 2,
-        "Keep": 3,
+        "Vendor Candidate": 2,
+        "Review": 3,
+        "Keep": 4,
     }.get(classification, 9)
 
 
@@ -269,3 +341,24 @@ def _is_high_risk_keep(package: dict) -> bool:
         and not package.get("specifier", "").startswith("workspace:")
         and not package["normalized_name"].startswith("@types/")
     )
+
+
+def _is_vendor_candidate(package: dict, usage_count: int) -> bool:
+    if not 1 <= usage_count <= 3:
+        return False
+    if package["normalized_name"] in REPLACEMENT_RECIPES or package["normalized_name"] in DO_NOT_REIMPLEMENT:
+        return False
+    if package.get("pure_source") is not True or not package.get("resolved_version"):
+        return False
+    return _is_permissive_license(package.get("license"))
+
+
+def _is_permissive_license(value: str | None) -> bool:
+    normalized = (value or "").upper().replace("_", "-")
+    if any(marker in normalized for marker in COPYLEFT_LICENSE_MARKERS):
+        return False
+    return any(re.search(pattern, normalized) for pattern in PERMISSIVE_LICENSE_PATTERNS)
+
+
+def _vendor_path(package_name: str) -> str:
+    return package_name.lstrip("@").replace("/", "__")

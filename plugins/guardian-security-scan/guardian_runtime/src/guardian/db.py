@@ -11,6 +11,7 @@ from .db_findings import FindingStoreMixin
 from .db_install_scripts import InstallScriptStoreMixin
 from .db_inventory import InventoryStoreMixin
 from .db_lockfile_hygiene import LockfileHygieneStoreMixin
+from .db_outreach import OutreachStoreMixin
 from .db_policy import PolicyStoreMixin
 from .db_registry import RegistryMetadataStoreMixin
 from .db_schema import SCHEMA, apply_additive_migrations
@@ -24,6 +25,7 @@ class Database(
     FindingStoreMixin,
     InstallScriptStoreMixin,
     LockfileHygieneStoreMixin,
+    OutreachStoreMixin,
     SnapshotStoreMixin,
     PolicyStoreMixin,
     RegistryMetadataStoreMixin,

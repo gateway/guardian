@@ -24,6 +24,7 @@ from .db import Database
 from .gates import assess_install_candidate, gate_install
 from .inventory import DEFAULT_ECOSYSTEMS, import_ndjson, scan_roots
 from .ops import run_daily, run_daily_watch, run_project_scan
+from .outreach import preflight_outreach, record_outreach_result
 from .package_diet import package_diet_scan
 from .reporting import (
     build_operator_view,
@@ -43,7 +44,7 @@ from .scan_modes import apply_scan_mode
 from .scan_summary import compact_project_scan_payload
 from .threat_intel import audit_advisory_yaml_corpus, ensure_default_threat_intel_sources, ingest_threat_intel
 from .util import normalize_package_name, print_json
-from .watchlist import run_watchlist
+from .watchlist import add_vendored_package_watch, run_watchlist
 
 
 def _severity_sort_key(value: str | None) -> int:
@@ -312,7 +313,13 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "diet":
             if args.diet_command == "scan":
-                payload = package_diet_scan(args.root, limit=args.limit, usage_limit=args.usage_limit)
+                payload = package_diet_scan(
+                    args.root,
+                    limit=args.limit,
+                    usage_limit=args.usage_limit,
+                    config=config,
+                    db=db,
+                )
                 if args.json:
                     print_json(payload)
                 else:
@@ -320,6 +327,21 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
 
         if args.command == "watchlist":
+            if args.watchlist_command == "add-vendored":
+                payload = add_vendored_package_watch(
+                    config,
+                    ecosystem=args.ecosystem,
+                    name=args.name,
+                    version=args.version,
+                    project_root=args.project_root,
+                    license_name=args.license,
+                    source_url=args.source_url,
+                )
+                if args.json:
+                    print_json(payload)
+                else:
+                    print(f"vendored package watch {payload['status']}: {payload['entry']['name']}@{payload['entry']['version']}")
+                return 0
             if args.watchlist_command == "run":
                 include_ghsa_override = None
                 if args.include_ghsa:
@@ -342,6 +364,31 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"{item['name']}: {item['status']} {item.get('headline') or item.get('error')}")
                 return 0 if payload["status"] == "pass" else 1
 
+        if args.command == "outreach":
+            if args.outreach_command == "preflight":
+                payload = preflight_outreach(
+                    config,
+                    db,
+                    repo=args.repo,
+                    repo_dir=Path(args.repo_dir).resolve(),
+                    advisory_id=args.advisory_id,
+                    package=args.package,
+                    version=args.version,
+                )
+            else:
+                payload = record_outreach_result(
+                    db,
+                    repo=args.repo,
+                    advisory_id=args.advisory_id,
+                    package=args.package,
+                    action=args.action,
+                    url=args.url,
+                )
+            if args.json:
+                print_json(payload)
+            else:
+                print(f"outreach: {payload.get('decision') or payload.get('action')} - {payload.get('reason') or ''}")
+            return 0
         if args.command == "assess" and args.assess_command == "refresh":
             payload = refresh_findings(
                 config,

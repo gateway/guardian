@@ -39,6 +39,7 @@ class GuardianConfig:
     scans_dir: str = str(STATE_DIR / "scans")
     threat_intel_sources_path: str = str(STATE_DIR / "threat_intel_sources.json")
     threat_intel_cache_dir: str = str(STATE_DIR / "source_cache")
+    vendored_watchlist_path: str = str(STATE_DIR / "vendored_packages.json")
     inventory_engine: str = "guardian-native"
     inventory_native_supported_ecosystems: List[str] = field(
         default_factory=lambda: ["npm", "pypi", "go", "crates.io", "packagist"]
@@ -60,6 +61,7 @@ class GuardianConfig:
     allowed_registry_hosts: List[str] = field(
         default_factory=lambda: ["registry.npmjs.org", "registry.yarnpkg.com", "index.crates.io", "github.com"]
     )
+    max_outreach_per_day: int = 5
     api_request_min_interval_seconds: float = 0.25
     ghsa_max_workers: int = 2
     osv_batch_delay_seconds: float = 0.1
@@ -79,7 +81,7 @@ class GuardianConfig:
     epss_api_url: str = "https://api.first.org/data/v1/epss"
     epss_high_percentile: float = 0.95
     epss_high_score: float = 0.2
-    user_agent: str = "guardian/1.4.0"
+    user_agent: str = "guardian/1.5.0"
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "GuardianConfig":

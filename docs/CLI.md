@@ -48,6 +48,25 @@ Review dependency bloat:
 ./plugins/guardian-security-scan/scripts/guardian diet scan /path/to/repo --limit 100 --usage-limit 80 --json
 ```
 
+Diet reports use local lockfile graph data and fresh registry metadata already cached in SQLite; they never fetch registry metadata themselves. A `Vendor Candidate` includes attribution/tests requirements and a command to retain the upstream package on Guardian's watchlist:
+
+```bash
+guardian watchlist add-vendored \
+  --ecosystem npm --name package-name --version 1.2.3 \
+  --project-root /path/to/repo --license MIT --json
+```
+
+Run the outreach safety preflight before preparing an upstream security PR or issue:
+
+```bash
+guardian outreach preflight \
+  --repo owner/name --repo-dir /path/to/checkout \
+  --advisory-id GHSA-xxxx-xxxx-xxxx \
+  --package package-name --version 1.2.3 --json
+```
+
+This command writes a durable SQLite ledger decision. It does not create external outreach.
+
 Check a package before installation:
 
 ```bash

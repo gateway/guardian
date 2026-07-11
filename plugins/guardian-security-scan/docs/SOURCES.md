@@ -74,6 +74,8 @@ Signals are behavioral context, not malware claims:
 
 Daily watch performs no registry-intelligence request when dependency files are unchanged. Standard scans skip first-scan baseline fetches and inspect only versions introduced after a prior inventory. Deep/handoff scans may seed a bounded baseline, capped by `registry_intel_max_packages`.
 
+Package diet reuses fresh registry metadata already stored in SQLite for size, license, publish age, maintainer count, and deprecation context. It performs no metadata refresh itself and labels reports usage-only when cached footprint fields are absent.
+
 ## OpenSSF Cost Boundary
 
 The OpenSSF source uses a shallow, blob-filtered sparse checkout restricted to packages in the current inventory. Git tree metadata for this large repository can still be tens of megabytes on the first fetch (about 66 MB in Guardian's July 2026 validation); later runs reuse the local source cache. It is therefore disabled for daily/standard modes unless explicitly requested.

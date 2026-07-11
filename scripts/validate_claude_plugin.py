@@ -155,6 +155,8 @@ def validate_runtime_paths() -> None:
         PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "inventory_native" / "golang.py",
         PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "inventory_native" / "cargo.py",
         PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "inventory_native" / "composer.py",
+        PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "package_diet_footprint.py",
+        PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "outreach.py",
         PLUGIN_ROOT / "data" / "catalog_manifest.json",
         PLUGIN_ROOT / "data" / "local_catalogs",
         PLUGIN_ROOT / "data" / "popular_packages" / "npm.json",

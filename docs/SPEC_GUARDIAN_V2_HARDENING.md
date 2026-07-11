@@ -310,12 +310,12 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Transitive-count computation from lockfile graph (new helper in `package_diet_usage.py` or `project_model.py`).
-- [ ] Integrate WS5 metadata (size, license, last-publish, maintainer count) into `package_diet.py`, cache-first, degrading gracefully to usage-only scoring offline.
-- [ ] Add `Vendor Candidate` classification + bucket + priority rank + report rendering (`package_diet_rules.py`: `buckets()`, `priority_rank()`, `bloat_score()`).
-- [ ] Wire vendored packages into `watchlist.py` so vulnerability scans still cover their upstream origin.
-- [ ] Update `guardian-package-diet` SKILL.md: vendor-it workflow, license-attribution requirement, "write tests before swapping" instruction for the agent.
-- [ ] Fixtures: micro-package with 1 call site + permissive license → Vendor Candidate; same package with GPL license → stays Review.
+- [x] Transitive-count computation from lockfile graph (new helper in `package_diet_usage.py` or `project_model.py`).
+- [x] Integrate WS5 metadata (size, license, last-publish, maintainer count) into `package_diet.py`, cache-first, degrading gracefully to usage-only scoring offline.
+- [x] Add `Vendor Candidate` classification + bucket + priority rank + report rendering (`package_diet_rules.py`: `buckets()`, `priority_rank()`, `bloat_score()`).
+- [x] Wire vendored packages into `watchlist.py` so vulnerability scans still cover their upstream origin.
+- [x] Update `guardian-package-diet` SKILL.md: vendor-it workflow, license-attribution requirement, "write tests before swapping" instruction for the agent.
+- [x] Fixtures: micro-package with 1 call site + permissive license → Vendor Candidate; same package with GPL license → stays Review.
 
 **Acceptance:** diet report on a fixture ranks a 4MB/2-call-site package above a 10KB/2-call-site one; offline runs still produce a complete (usage-only) report with a note that footprint data was skipped.
 
@@ -337,11 +337,11 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Implement pre-flight dedupe checks (`gh pr list --search`, `gh issue list --search`, HEAD lockfile comparison) in a new `outreach.py`, invoked by the advisory-PR flow; degrade to "checks unavailable, verify manually" without `gh`.
-- [ ] Add `outreach_log` table + ledger enforcement + `max_outreach_per_day`.
-- [ ] Rewrite `skills/guardian-advisory-pr/SKILL.md` with the pre-flight checklist, human-confirmation gate, and SECURITY.md-channel preference.
-- [ ] Extend `docs/REPO_SCOUT.md` with the outreach policy.
-- [ ] Fixture/dry-run test: ledger blocks a second proposal for the same (repo, advisory) pair.
+- [x] Implement pre-flight dedupe checks (`gh pr list --search`, `gh issue list --search`, HEAD lockfile comparison) in a new `outreach.py`, invoked by the advisory-PR flow; degrade to "checks unavailable, verify manually" without `gh`.
+- [x] Add `outreach_log` table + ledger enforcement + `max_outreach_per_day`.
+- [x] Rewrite `skills/guardian-advisory-pr/SKILL.md` with the pre-flight checklist, human-confirmation gate, and SECURITY.md-channel preference.
+- [x] Extend `docs/REPO_SCOUT.md` with the outreach policy.
+- [x] Fixture/dry-run test: ledger blocks a second proposal for the same (repo, advisory) pair.
 
 **Acceptance:** a dry-run advisory-PR flow against a repo with an existing fix PR reports "in-flight, no action" and writes a ledger row.
 

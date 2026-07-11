@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS lockfile_hygiene_state (
 CREATE INDEX IF NOT EXISTS idx_lockfile_hygiene_present
 ON lockfile_hygiene_state(root_path, present);
 
+CREATE TABLE IF NOT EXISTS outreach_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo TEXT NOT NULL,
+  advisory_id TEXT NOT NULL,
+  package TEXT NOT NULL,
+  action TEXT NOT NULL,
+  url TEXT,
+  details_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(repo, advisory_id, package)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outreach_log_created
+ON outreach_log(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,

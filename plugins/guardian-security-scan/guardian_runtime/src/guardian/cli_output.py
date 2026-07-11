@@ -40,6 +40,9 @@ def print_project_scan_summary(payload: dict) -> None:
 def print_diet_scan(payload: dict, limit: int) -> None:
     print(f"Package diet scan: {payload['package_count']} declared npm packages")
     print(f"Summary: {payload['summary']}")
+    coverage = payload.get("footprint_coverage") or {}
+    if coverage:
+        print(f"Footprint: {coverage.get('status')} - {coverage.get('note')}")
     for bucket_name, bucket_items in payload.get("top_candidates", {}).items():
         if bucket_items:
             print(f"{bucket_name.replace('_', ' ').title()}:")
@@ -57,6 +60,12 @@ def print_diet_scan(payload: dict, limit: int) -> None:
         )
         print(f"    manifest: {package['manifest_relative_path']}")
         print(f"    usage density: {package['usage_density']['label']}")
+        footprint = package.get("footprint") or {}
+        if footprint.get("status") != "unavailable":
+            print(
+                f"    footprint: transitive={footprint.get('transitive_count')} "
+                f"size_bytes={footprint.get('size_bytes')} license={package.get('license') or 'unknown'}"
+            )
         print(f"    reason: {package['reason']}")
         if package.get("usage_symbols"):
             print(f"    symbols: {', '.join(package['usage_symbols'])}")
@@ -67,6 +76,13 @@ def print_diet_scan(payload: dict, limit: int) -> None:
             print(f"    used at: {hit['file']}:{hit['line']}")
         if package.get("local_example"):
             print(f"    local example: {package['local_example']}")
+        if package.get("vendor_plan"):
+            print(
+                f"    vendor plan: {package['vendor_plan']['path']} with "
+                f"{package['vendor_plan']['license']} attribution and tests before swapping"
+            )
+        if package.get("watchlist_command"):
+            print(f"    upstream watch: {package['watchlist_command']}")
 
 
 def print_gate_check(payload: dict) -> None:
