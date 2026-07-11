@@ -7,6 +7,10 @@ description: Turn a confirmed Guardian dependency finding into a maintainer-frie
 
 Use this skill only after a Guardian finding is confirmed as actionable. Do not open PRs for weak vendored metadata-only findings.
 
+## Dependency Addition Guard
+
+Before adding or changing any dependency, run the bundled `guardian check-package <ecosystem> <name> [version] --json`. Do not proceed on a block; explain warning evidence before continuing.
+
 ## Workflow
 
 1. Confirm the finding with Guardian plus at least one corroborating source such as OSV, GitHub Advisory Database, npm audit, pnpm audit, PyPI advisory, GitLab Advisory Database, NVD, or upstream advisory.

@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "guardian-security-scan"
 PLUGIN_MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
+HOOKS_FILE = PLUGIN_ROOT / "hooks" / "hooks.json"
 
 
 def fail(message: str) -> None:
@@ -84,6 +85,8 @@ def validate_plugin_manifest(entry: dict[str, Any]) -> dict[str, Any]:
         fail("plugin repository must point at the public Guardian repository")
     if manifest.get("skills") != "./skills/":
         fail("plugin manifest should load the bundled ./skills/ directory")
+    if manifest.get("hooks") != "./hooks/hooks.json":
+        fail("plugin manifest should load the bundled PreToolUse hook")
     author = manifest.get("author")
     if not isinstance(author, dict) or author.get("name") != "Dreaming Computers":
         fail("plugin author must be Dreaming Computers")
@@ -119,6 +122,7 @@ def validate_skills() -> None:
     skill_files = sorted(skills_dir.glob("*/SKILL.md"))
     expected = {
         "guardian-advisory-pr",
+        "guardian-check-package",
         "guardian-daily-watch",
         "guardian-package-diet",
         "guardian-project-scan",
@@ -144,13 +148,39 @@ def validate_runtime_paths() -> None:
         PLUGIN_ROOT / "bin" / "guardian",
         PLUGIN_ROOT / "guardian_runtime" / "src" / "guardian" / "cli.py",
         PLUGIN_ROOT / "data" / "local_catalogs",
+        PLUGIN_ROOT / "data" / "popular_packages" / "npm.json",
+        PLUGIN_ROOT / "data" / "popular_packages" / "pypi.json",
+        HOOKS_FILE,
+        PLUGIN_ROOT / "hooks" / "preinstall_gate.py",
     ]
     for path in required:
         if not path.exists():
             fail(f"required plugin path is missing: {path}")
-    for executable in [PLUGIN_ROOT / "scripts" / "guardian", PLUGIN_ROOT / "bin" / "guardian"]:
+    for executable in [
+        PLUGIN_ROOT / "scripts" / "guardian",
+        PLUGIN_ROOT / "bin" / "guardian",
+        PLUGIN_ROOT / "hooks" / "preinstall_gate.py",
+    ]:
         if not os.access(executable, os.X_OK):
             fail(f"required executable bit is missing: {executable}")
+
+
+def validate_hooks() -> None:
+    """Verify the plugin hook is narrow, portable, and rooted in its installed bundle."""
+
+    payload = load_json(HOOKS_FILE)
+    entries = (payload.get("hooks") or {}).get("PreToolUse")
+    if not isinstance(entries, list) or len(entries) != 1:
+        fail("hooks.json must define exactly one PreToolUse entry")
+    entry = entries[0]
+    if entry.get("matcher") != "Bash":
+        fail("Guardian PreToolUse hook must match Bash only")
+    commands = entry.get("hooks")
+    if not isinstance(commands, list) or len(commands) != 1:
+        fail("Guardian PreToolUse entry must contain one command hook")
+    command = commands[0]
+    if command.get("type") != "command" or "${CLAUDE_PLUGIN_ROOT}" not in command.get("command", ""):
+        fail("Guardian hook command must resolve through CLAUDE_PLUGIN_ROOT")
 
 
 def validate_cache_copy_smoke() -> None:
@@ -180,12 +210,51 @@ def validate_cache_copy_smoke() -> None:
         except json.JSONDecodeError as exc:
             fail(f"copied plugin smoke output was not JSON: {exc}")
 
+        hook_input = json.dumps({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "npm install @beproduct/nestjs-auth@0.1.18"},
+        })
+        hook = subprocess.run(
+            [str(cached_plugin / "hooks" / "preinstall_gate.py")],
+            env=env,
+            input=hook_input,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if hook.returncode != 0:
+            fail(f"copied plugin hook failed: {hook.stderr}")
+        try:
+            hook_payload = json.loads(hook.stdout)
+        except json.JSONDecodeError as exc:
+            fail(f"copied plugin hook block output was not JSON: {exc}")
+        decision = (hook_payload.get("hookSpecificOutput") or {}).get("permissionDecision")
+        if decision != "deny":
+            fail(f"copied plugin hook did not deny local malicious fixture: {hook_payload}")
+
+        config_path = Path(env["GUARDIAN_STATE_DIR"]) / "config.json"
+        config = json.loads(config_path.read_text())
+        config["preinstall_gate_enabled"] = False
+        config_path.write_text(json.dumps(config, indent=2) + "\n")
+        disabled_hook = subprocess.run(
+            [str(cached_plugin / "hooks" / "preinstall_gate.py")],
+            env=env,
+            input=hook_input,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if disabled_hook.returncode != 0 or disabled_hook.stdout.strip():
+            fail(f"disabled copied plugin hook did not bypass cleanly: {disabled_hook.stdout} {disabled_hook.stderr}")
+
 
 def main() -> int:
     entry = validate_marketplace()
     validate_plugin_manifest(entry)
     validate_skills()
     validate_runtime_paths()
+    validate_hooks()
     validate_cache_copy_smoke()
     print("Claude plugin packaging validation passed")
     return 0

@@ -9,10 +9,17 @@ from pathlib import Path
 from .advisories import refresh_findings
 from .catalog import export_exact_match_catalog
 from .config import DEFAULT_CONFIG_PATH, load_config, save_config
-from .cli_output import print_diet_scan, print_gate_check, print_gate_install, print_project_scan_summary
+from .check_package import check_package as check_package_fast, exit_code_for_verdict
+from .cli_output import (
+    print_diet_scan,
+    print_gate_check,
+    print_gate_install,
+    print_package_verdict,
+    print_project_scan_summary,
+)
 from .cli_parser import build_parser
 from .db import Database
-from .gates import check_package, gate_install
+from .gates import assess_install_candidate, gate_install
 from .inventory import DEFAULT_ECOSYSTEMS, import_ndjson, scan_roots
 from .ops import run_daily, run_daily_watch, run_project_scan
 from .package_diet import package_diet_scan
@@ -582,9 +589,24 @@ def main(argv: list[str] | None = None) -> int:
                 print(str(path))
             return 0
 
+        if args.command == "check-package":
+            payload = check_package_fast(
+                config,
+                db,
+                args.ecosystem,
+                args.name,
+                args.version,
+                max_seconds=args.max_seconds,
+            )
+            if args.json:
+                print_json(payload)
+            else:
+                print_package_verdict(payload)
+            return exit_code_for_verdict(payload)
+
         if args.command == "gate":
             if args.gate_command == "check-package":
-                payload = check_package(config, db, args.ecosystem, args.name, args.version)
+                payload = assess_install_candidate(config, db, args.ecosystem, args.name, args.version)
                 if args.json:
                     print_json(payload)
                 else:
@@ -602,6 +624,32 @@ def main(argv: list[str] | None = None) -> int:
                 return 1 if payload["blocked"] else int(payload.get("returncode", 0))
 
         if args.command == "policy":
+            if args.policy_command == "accept-name":
+                normalized_name = normalize_package_name(args.ecosystem, args.name)
+                db.add_policy_exception(
+                    ecosystem=args.ecosystem,
+                    normalized_name=normalized_name,
+                    version=None,
+                    advisory_source=None,
+                    canonical_key=None,
+                    action="accept-name",
+                    reason=args.reason,
+                    expires_at=None,
+                    created_by=args.created_by,
+                )
+                db.invalidate_package_verdicts(args.ecosystem, normalized_name)
+                payload = {
+                    "status": "ok",
+                    "action": "accept-name",
+                    "ecosystem": args.ecosystem,
+                    "name": args.name,
+                    "reason": args.reason,
+                }
+                if args.json:
+                    print_json(payload)
+                else:
+                    print(f"accepted package name: {args.ecosystem} {args.name}")
+                return 0
             if args.policy_command == "add-exception":
                 db.add_policy_exception(
                     ecosystem=args.ecosystem,

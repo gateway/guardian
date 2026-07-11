@@ -7,6 +7,10 @@ description: Run Guardian package diet analysis for dependency bloat, unused-pac
 
 Use this skill when the user asks about package bloat, unused dependencies, replacing packages with native code, or reducing supply-chain surface area. This is not a vulnerability scan.
 
+## Dependency Addition Guard
+
+If a cleanup proposal introduces or substitutes a dependency, run the bundled `guardian check-package <ecosystem> <name> [version] --json` first. Do not proceed on a block; explain warning evidence before continuing.
+
 ## Runner
 
 Resolve the bundled Guardian CLI relative to this skill file:

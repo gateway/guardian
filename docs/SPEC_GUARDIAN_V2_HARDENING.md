@@ -128,14 +128,14 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Implement `check_package.py` orchestrator + CLI wiring, reusing `sources/osv.py` `OSVClient`, `sources/local_catalog.py`, WS3 typosquat module, WS5/`registries.py` metadata (cache-first).
-- [ ] Result cache table `check_package_cache` (ecosystem, name, version, verdict_json, checked_at) with TTL (default 24h) so repeat installs are instant and offline-safe.
-- [ ] Hook script (stdlib Python, executable) under `plugins/guardian-security-scan/hooks/`: parse install commands robustly (flags, multiple packages, version specs, git URLs — git URLs always at least `warn`).
-- [ ] Wire hook into Claude plugin manifest; validate with `scripts/validate_claude_plugin.py` (extend the validator to cover hooks).
-- [ ] Codex path: interception if supported, else skill-instruction fallback in all five SKILL.md files.
-- [ ] New skill `guardian-check-package` so users/agents can invoke the gate explicitly.
-- [ ] Fixtures/tests: command-line parsing table test (20+ real-world install command variants); verdict tests against the malicious-local-catalog fixture; offline test asserts fail-open warn.
-- [ ] Docs: new `docs/PREINSTALL_GATE.md` (threat model, what it can/can't catch, how to disable, exit codes).
+- [x] Implement `check_package.py` orchestrator + CLI wiring, reusing `sources/osv.py` `OSVClient`, `sources/local_catalog.py`, WS3 typosquat module, and bounded registry metadata (cache-first).
+- [x] Result cache table `check_package_cache` (ecosystem, name, version, verdict_json, checked_at) with TTL (default 24h) so repeat installs are instant and offline-safe.
+- [x] Hook script (stdlib Python, executable) under `plugins/guardian-security-scan/hooks/`: parse install commands robustly (flags, multiple packages, version specs, git URLs — git URLs always at least `warn`).
+- [x] Wire hook into Claude plugin manifest; validate with `scripts/validate_claude_plugin.py` (extended to cover hooks and copied-cache denial behavior).
+- [x] Codex path: wire the compatible plugin hook and retain skill-instruction fallback in every bundled SKILL.md file.
+- [x] New skill `guardian-check-package` so users/agents can invoke the gate explicitly.
+- [x] Fixtures/tests: command-line parsing table test (20+ real-world install command variants); verdict tests against the malicious-local-catalog fixture; offline test asserts fail-open warn.
+- [x] Docs: new `docs/PREINSTALL_GATE.md` (threat model, what it can/can't catch, how to disable, exit codes).
 
 **Acceptance:** `guardian check-package npm left-pad` returns in <1s warm, <3s cold; installing a package present in `data/local_catalogs/*.json` is blocked with the catalog name in the explanation; disabling via config bypasses the hook cleanly.
 
@@ -157,12 +157,12 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Implement bounded Damerau-Levenshtein + transform checks in `typosquat.py` with exhaustive unit tests (true positives: `reqests`, `lodahs`, `is-nubmer`; true negatives: `react` itself, `preact`).
-- [ ] Build and commit the two popular-package lists + `scripts/refresh_popular_packages.py` + provenance header.
-- [ ] Wire into scan pipeline for new-to-snapshot packages only; wire into WS2 `check-package`.
-- [ ] Reuse `policy_exceptions` for accepted names; surface the accept command in output ("to silence: `guardian policy accept-name npm preact`").
-- [ ] Fixture: project adding `reqests` flags `behavioral-high`; repeat scan silent after policy exception.
-- [ ] Docs: TRUST_MODEL section on false-positive expectations and the whitelist flow.
+- [x] Implement bounded Damerau-Levenshtein + transform checks in `typosquat.py` with exhaustive unit tests (true positives: `reqests`, `lodahs`, `is-nubmer`; true negatives: `react` itself, `preact`).
+- [x] Build and commit the two popular-package lists + `scripts/refresh_popular_packages.py` + provenance header.
+- [x] Wire into scan pipeline for new-to-snapshot packages only; wire into WS2 `check-package`.
+- [x] Reuse `policy_exceptions` for accepted names; surface the accept command in output ("to silence: `guardian policy accept-name npm preact`").
+- [x] Test first-seen typo signaling, unchanged repeat silence, and accepted-name suppression.
+- [x] Docs: TRUST_MODEL section on false-positive expectations and the whitelist flow.
 
 **Acceptance:** new-dep scan overhead <50ms per new package; zero flags on a scan of Guardian's own fixture set except designed positives.
 

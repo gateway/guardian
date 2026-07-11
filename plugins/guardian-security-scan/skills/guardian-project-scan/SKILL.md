@@ -7,6 +7,10 @@ description: Run Guardian against the current project or repo, compare the new s
 
 Use this skill when the user asks to scan a project, verify whether dependency issues were fixed, check package security posture, or create a handoff for another coding-agent session.
 
+## Dependency Addition Guard
+
+Before adding or upgrading any dependency as follow-up work, run the bundled `guardian check-package <ecosystem> <name> [version] --json`. Do not proceed on a block; explain warning evidence before continuing.
+
 ## Runner
 
 Resolve the bundled runner relative to this skill file:

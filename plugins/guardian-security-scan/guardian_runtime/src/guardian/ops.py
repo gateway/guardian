@@ -27,6 +27,7 @@ from .remediation import sync_remediation_lifecycle
 from .scan_summary import build_compact_operator_view
 from .source_contract import live_source_contract, threat_intel_source_contract
 from .threat_intel import ensure_default_threat_intel_sources, ingest_threat_intel
+from .typosquat import detect_new_package_typosquats
 from .util import utc_now, write_json
 
 
@@ -174,8 +175,12 @@ def run_project_scan(
         )
         scan_scope = _scan_scope(db, root, include_installed=include_installed)
         behavioral_signals = run_phase(
-            "install-script-signals",
-            lambda: detect_install_script_changes(db, root),
+            "behavioral-signals",
+            lambda: _behavioral_signals_for_runs(
+                db,
+                root,
+                [item["run_id"] for item in inventory_runs if item.get("run_id") is not None],
+            ),
         )
         large_reasons = _large_repo_reasons(config, scan_scope)
         if large_reasons:
@@ -571,8 +576,13 @@ def run_daily(
         excludes=[],
         engine=engine,
     )
+    run_ids_by_root = {
+        item["root"]: [item["run_id"]]
+        for item in inventory_runs
+        if item.get("run_id") is not None
+    }
     behavioral_signals_by_root = {
-        root: detect_install_script_changes(db, root)
+        root: _behavioral_signals_for_runs(db, root, run_ids_by_root.get(root, []))
         for root in roots
     }
     threat_intel = None
@@ -613,11 +623,6 @@ def run_daily(
     comparisons = []
     remediation_updates = []
     roots_to_snapshot = roots if roots else ([root_filter] if root_filter else [])
-    run_ids_by_root = {
-        item["root"]: [item["run_id"]]
-        for item in inventory_runs
-        if item.get("run_id") is not None
-    }
     for root in roots_to_snapshot:
         root_triage = triage_report(config, db, root_filter=root, package_limit=None)
         snapshot = create_triage_snapshot(
@@ -728,8 +733,13 @@ def run_daily_watch(
             excludes=[],
             engine=engine,
         )
+        run_ids_by_root = {
+            item["root"]: [item["run_id"]]
+            for item in inventory_runs
+            if item.get("run_id") is not None
+        }
         behavioral_signals_by_root = {
-            root: detect_install_script_changes(db, root)
+            root: _behavioral_signals_for_runs(db, root, run_ids_by_root.get(root, []))
             for root in roots_to_inventory
         }
         for root_status in root_statuses:
@@ -834,3 +844,18 @@ def run_daily_watch(
     write_json(path, payload)
     payload["report_path"] = str(path)
     return payload
+
+
+def _behavioral_signals_for_runs(db: Database, root: str, run_ids: list[int]) -> list[dict]:
+    """Combine offline behavioral detectors while preserving one priority order."""
+
+    signals = detect_install_script_changes(db, root)
+    signals.extend(detect_new_package_typosquats(db, root, run_ids))
+    return sorted(
+        signals,
+        key=lambda item: (
+            item.get("posture_rank", 9),
+            (item.get("package_name") or "").lower(),
+            item.get("signal_type") or "",
+        ),
+    )

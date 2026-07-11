@@ -11,6 +11,7 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 - Inventories npm and Python dependency evidence from manifests, lockfiles, and optional installed metadata.
 - Matches exact package versions against vulnerability, exploit-intelligence, and malicious-package sources.
 - Detects when a dependency newly gains install-time behavior, including npm lifecycle scripts and selected Python source-install evidence.
+- Checks proposed packages before installation, including probable typosquats, published advisories, install behavior, and exact malicious-catalog matches.
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.
 - Tracks scans over time so you can see new, resolved, changed, and unchanged findings.
 - Produces compact operator JSON and optional Markdown handoff reports for agents, maintainers, and reviewers.
@@ -103,6 +104,7 @@ Run `/reload-plugins` or start a new Claude Code session after installing.
 
 Guardian's Claude skills are namespaced:
 
+- `guardian-security-scan:guardian-check-package`
 - `guardian-security-scan:guardian-project-scan`
 - `guardian-security-scan:guardian-daily-watch`
 - `guardian-security-scan:guardian-repo-scout`
@@ -139,6 +141,20 @@ If you are testing from a Guardian checkout instead of an installed plugin, run:
 
 Use Sonnet with low or normal effort for routine scan summaries. Guardian does the dependency scan locally; higher-reasoning models are usually unnecessary for install verification.
 
+## Check Before Installing
+
+Guardian registers a bounded `PreToolUse` hook for common npm, pnpm, Yarn, pip, uv, and Poetry additions. You can also ask for the check explicitly before an install:
+
+Codex:
+
+> $guardian-security-scan:guardian-check-package Check `npm react@19.1.0` before I install it. Give me the verdict, strongest evidence, source coverage, and safe next action. Do not install it.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-check-package Check `npm react@19.1.0` before I install it. Give me the verdict, strongest evidence, source coverage, and safe next action. Do not install it.
+
+Exact malicious-catalog matches block. Probable typosquats, known vulnerable versions, and opaque direct-source installs pause for review. Network failure remains fail-open with an explicit coverage warning. See [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md).
+
 ## Skills And When To Use Them
 
 Skill calls are slightly different by harness:
@@ -148,6 +164,18 @@ Skill calls are slightly different by harness:
 - Natural language usually works too, but the prefixed form is the clearest copy/paste option.
 
 Standalone personal skills may have shorter names such as `$guarded-code`; Guardian skills are plugin skills, so they use the plugin namespace to avoid collisions with other installed skills.
+
+### `guardian-check-package`
+
+Use this before adding an npm or Python dependency. It returns a bounded, cached allow/warn/block verdict without installing the package.
+
+Codex:
+
+> $guardian-security-scan:guardian-check-package Check `pypi requests==2.32.4` before installation. Do not install it. Explain any typo, advisory, install-behavior, malicious-catalog, or source-coverage signal and tell me whether to proceed.
+
+Claude Code:
+
+> /guardian-security-scan:guardian-check-package Check `pypi requests==2.32.4` before installation. Do not install it. Explain any typo, advisory, install-behavior, malicious-catalog, or source-coverage signal and tell me whether to proceed.
 
 ### `guardian-project-scan`
 
@@ -254,6 +282,7 @@ Guardian is designed to be lightweight for local agent workflows and scheduled s
 - Normal reports are compact so agents read summaries instead of raw lockfiles.
 - Daily watch skips unchanged dependency inventories.
 - Live-source requests share bounded retry, pacing, and conditional disk caching so large feeds are not downloaded again while fresh.
+- Pre-install package verdicts are cached in SQLite for 24 hours by default; repeat checks are normally sub-second and consume no model reasoning unless evidence needs explanation.
 - Live advisory refresh and installed-tree corroboration are explicit options.
 - Repo Scout uses bounded, paced scans for large public repos.
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings.
@@ -265,6 +294,7 @@ Default scans are intentionally conservative. Deeper live-source checks, install
 
 - [`docs/AUTOMATION.md`](docs/AUTOMATION.md): daily watch, freshness, and scan-state behavior.
 - [`docs/CLI.md`](docs/CLI.md): direct CLI usage, scan modes, tokens, and local state.
+- [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md): package checks, hooks, verdicts, false positives, and fail-open behavior.
 - [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md): Claude Code install, validation, and smoke tests.
 - [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md): temporary public GitHub repo scouting.
 - [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md): security boundary, source model, and known limits.

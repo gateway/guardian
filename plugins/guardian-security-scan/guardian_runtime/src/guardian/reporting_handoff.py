@@ -399,13 +399,14 @@ def _append_behavioral_signals(lines: list[str], signals: list[dict]) -> None:
     lines.append("## Behavioral Signals")
     lines.append("")
     if not signals:
-        lines.append("No new install-time behavior changes were detected in this scan.")
+        lines.append("No new dependency-behavior or package-name signals were detected in this scan.")
         lines.append("")
         return
     for signal in signals:
+        identity = signal["package_name"] + (f"@{signal['version']}" if signal.get("version") else "")
         lines.append(
             f"### {signal['posture'].replace('_', ' ').title()}: "
-            f"{signal['package_name']}@{signal['version']}"
+            f"{identity}"
         )
         lines.append("")
         lines.append(f"- Signal: `{signal['signal_type']}`")
@@ -415,6 +416,13 @@ def _append_behavioral_signals(lines: list[str], signals: list[dict]) -> None:
             lines.append(f"- Previous observed version: `{signal['previous_version']}`")
         if signal.get("script_kinds"):
             lines.append(f"- Install behavior: `{', '.join(signal['script_kinds'])}`")
+        if signal.get("similar_package"):
+            lines.append(
+                f"- Similar popular package: `{signal['similar_package']}` "
+                f"(rank {signal.get('similar_package_rank', 'unknown')})"
+            )
+        if signal.get("silence_command"):
+            lines.append(f"- Accept verified name: `{signal['silence_command']}`")
         lines.append(f"- Why it matters: {signal['explanation']}")
         for source_file in signal.get("source_files", [])[:3]:
             lines.append(f"- Evidence file: `{source_file}`")

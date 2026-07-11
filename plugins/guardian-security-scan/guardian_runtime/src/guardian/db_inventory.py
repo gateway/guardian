@@ -81,9 +81,10 @@ class InventoryStoreMixin:
                   root_path, ecosystem, package_name, normalized_name, version,
                   project_path, source_file, source_type, package_manager,
                   root_kind, confidence, direct_dependency, install_scope,
-                  first_seen_at, last_seen_at, present, last_run_id, raw_json
+                  first_seen_at, last_seen_at, present, last_run_id,
+                  first_seen_run_id, raw_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
                 ON CONFLICT(root_path, ecosystem, normalized_name, version, source_file) DO UPDATE SET
                   package_name = excluded.package_name,
                   project_path = excluded.project_path,
@@ -114,6 +115,7 @@ class InventoryStoreMixin:
                     record.get("install_scope"),
                     now,
                     now,
+                    run_id,
                     run_id,
                     json.dumps(record, sort_keys=True),
                 ),
@@ -170,6 +172,40 @@ class InventoryStoreMixin:
                 ORDER BY ecosystem, normalized_name, version
                 """,
                 (root_path,),
+            )
+        )
+
+    def new_package_names_for_runs(self, root_path: str, run_ids: list[int]) -> List[sqlite3.Row]:
+        """Return package names first introduced by the supplied inventory runs."""
+
+        if not run_ids:
+            return []
+        placeholders = ",".join("?" for _run_id in run_ids)
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT DISTINCT
+                  current.ecosystem,
+                  current.package_name,
+                  current.normalized_name
+                FROM package_state current
+                WHERE current.root_path = ?
+                  AND current.present = 1
+                  AND current.first_seen_run_id IN ({placeholders})
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM package_state prior
+                    WHERE prior.root_path = current.root_path
+                      AND prior.ecosystem = current.ecosystem
+                      AND prior.normalized_name = current.normalized_name
+                      AND (
+                        prior.first_seen_run_id IS NULL
+                        OR prior.first_seen_run_id NOT IN ({placeholders})
+                      )
+                  )
+                ORDER BY current.ecosystem, current.normalized_name
+                """,
+                [root_path, *run_ids, *run_ids],
             )
         )
 

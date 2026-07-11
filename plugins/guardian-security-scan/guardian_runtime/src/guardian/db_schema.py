@@ -1,8 +1,8 @@
-"""SQLite schema for Guardian local state, scan snapshots, findings, and remediation data."""
+"""SQLite schema and additive migrations for Guardian's local state."""
 
 from __future__ import annotations
 
-"""SQLite schema for Guardian's local state database."""
+import sqlite3
 
 
 SCHEMA = """
@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS package_state (
   last_seen_at TEXT NOT NULL,
   present INTEGER NOT NULL DEFAULT 1,
   last_run_id INTEGER REFERENCES inventory_runs(id) ON DELETE SET NULL,
+  first_seen_run_id INTEGER REFERENCES inventory_runs(id) ON DELETE SET NULL,
   raw_json TEXT NOT NULL,
   UNIQUE(root_path, ecosystem, normalized_name, version, source_file)
 );
@@ -102,6 +103,19 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 CREATE INDEX IF NOT EXISTS idx_install_script_state_package
 ON install_script_state(root_path, ecosystem, normalized_name, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS check_package_cache (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ecosystem TEXT NOT NULL,
+  normalized_name TEXT NOT NULL,
+  version TEXT NOT NULL,
+  verdict_json TEXT NOT NULL,
+  checked_at TEXT NOT NULL,
+  UNIQUE(ecosystem, normalized_name, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_check_package_cache_checked
+ON check_package_cache(checked_at DESC);
 
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,3 +247,16 @@ CREATE TABLE IF NOT EXISTS remediation_events (
 CREATE INDEX IF NOT EXISTS idx_remediation_events_item_created
 ON remediation_events(item_id, created_at DESC);
 """
+
+
+def apply_additive_migrations(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after initial release without rebuilding tables."""
+
+    package_state_columns = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(package_state)")
+    }
+    if "first_seen_run_id" not in package_state_columns:
+        conn.execute(
+            "ALTER TABLE package_state ADD COLUMN first_seen_run_id INTEGER REFERENCES inventory_runs(id) ON DELETE SET NULL"
+        )

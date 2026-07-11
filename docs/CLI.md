@@ -48,6 +48,15 @@ Review dependency bloat:
 ./plugins/guardian-security-scan/scripts/guardian diet scan /path/to/repo --limit 100 --usage-limit 80 --json
 ```
 
+Check a package before installation:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian check-package npm react 19.1.0 --json
+./plugins/guardian-security-scan/scripts/guardian check-package pypi requests 2.32.4 --json
+```
+
+The package-check exit codes are `0` allow, `1` warn, and `2` block. See [`PREINSTALL_GATE.md`](PREINSTALL_GATE.md) for hook behavior and configuration.
+
 Scout a public GitHub repo with temporary state:
 
 ```bash

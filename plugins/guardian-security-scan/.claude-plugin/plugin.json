@@ -1,8 +1,8 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "displayName": "Guardian Security Scan",
-  "description": "Guardian scans npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
+  "description": "Guardian scans npm and Python projects for package risk and checks proposed dependencies before installation.",
   "author": {
     "name": "Dreaming Computers",
     "url": "https://github.com/gateway"
@@ -19,5 +19,6 @@
     "pypi",
     "claude-code"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
 }

@@ -2,6 +2,31 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.2.0 - 2026-07-11
+
+### Added
+
+- A bounded `guardian check-package` command with allow/warn/block JSON verdicts and stable exit codes.
+- A cross-compatible Codex and Claude Code `PreToolUse` hook for common npm, pnpm, Yarn, pip, uv, and Poetry package additions.
+- A dedicated `guardian-check-package` skill and explicit pre-install checks across every bundled workflow skill.
+- Ranked top-5,000 npm and PyPI package snapshots with reproducible provenance and a standard-library refresh script.
+- Bounded Damerau-Levenshtein and targeted confusion detection for newly introduced typosquat/slopsquat package names.
+- Persistent `first_seen_run_id` inventory state, accepted-name policy, and a 24-hour SQLite package-verdict cache.
+
+### Changed
+
+- Package checks fail open with explicit incomplete-source warnings when registry or OSV requests are unavailable.
+- Cached package verdicts are invalidated when local malicious catalogs or blocking policy change.
+- Scan-time typo checks run only for package names first introduced by the current inventory run.
+
+### Verified
+
+- Cold clean checks complete within the three-second gate budget and warm checks complete in under one second.
+- Exact malicious-catalog fixture packages block locally without a network request.
+- More than 20 real-world install command forms are parsed without treating restore commands or requirements files as direct package additions.
+- Hook packaging validates in a copied plugin cache and Anthropic's strict plugin validator.
+- Offline source failure allows the install with visible warning context rather than disabling development.
+
 ## 1.1.0 - 2026-07-11
 
 ### Added

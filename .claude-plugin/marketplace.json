@@ -8,7 +8,7 @@
     {
       "name": "guardian-security-scan",
       "source": "./plugins/guardian-security-scan",
-      "description": "Scan npm and Python projects for known vulnerable, known exploited, malicious, and high-risk package findings.",
+      "description": "Scan npm and Python projects for package risk and check proposed dependencies before installation.",
       "author": {
         "name": "Dreaming Computers",
         "url": "https://github.com/gateway"

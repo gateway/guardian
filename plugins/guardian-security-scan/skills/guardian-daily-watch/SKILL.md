@@ -7,6 +7,10 @@ description: Run Guardian's lightweight multi-repo morning watch. Use when the u
 
 Use this skill for lightweight scheduled checks across one or more repo roots. Prefer it over `guardian-project-scan` when the user wants a morning automation, a quick multi-repo posture check, or dependency-file change detection without full code usage analysis.
 
+## Dependency Addition Guard
+
+Before adding any dependency while responding to scan findings, run the bundled `guardian check-package <ecosystem> <name> [version] --json`. Do not proceed on a block; explain warning evidence before continuing.
+
 ## Workflow
 
 1. Resolve roots.

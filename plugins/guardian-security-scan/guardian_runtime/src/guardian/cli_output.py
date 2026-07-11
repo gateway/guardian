@@ -10,9 +10,10 @@ def print_project_scan_summary(payload: dict) -> None:
     print(f"elapsed: {payload['elapsed_seconds']}s")
     print(f"packages checked: {payload['refresh']['packages_checked']}")
     for item in payload.get("behavioral_signals", []):
+        identity = item["package_name"] + (f"@{item['version']}" if item.get("version") else "")
         print(
             f"behavioral {item['posture'].replace('_', ' ')}: "
-            f"{item['package_name']}@{item['version']} ({item['signal_type']})"
+            f"{identity} ({item['signal_type']})"
         )
     scan_policy = payload.get("scan_policy") or {}
     if scan_policy.get("large_repo_mode"):
@@ -75,6 +76,18 @@ def print_gate_check(payload: dict) -> None:
     print_gate_recommendation(payload)
     for finding in payload.get("deduped_findings", []):
         print_gate_finding(finding, indent="  ")
+
+
+def print_package_verdict(payload: dict) -> None:
+    """Render the bounded pre-install verdict without legacy remediation noise."""
+
+    version = payload.get("resolved_version") or payload.get("requested_version") or "latest"
+    print(f"Guardian {payload['verdict'].upper()}: {payload['ecosystem']} {payload['name']}@{version}")
+    print(payload["explanation"])
+    for signal in payload.get("signals", []):
+        reference = f" {signal['id']}" if signal.get("id") else ""
+        print(f"  {signal['signal_grade']} {signal['signal_type']}{reference}: {signal['explanation']}")
+    print(f"cache: {'hit' if payload.get('cache_hit') else 'miss'} | elapsed: {payload['elapsed_seconds']}s")
 
 
 def print_gate_install(payload: dict, *, execute: bool, package_manager: str) -> None:

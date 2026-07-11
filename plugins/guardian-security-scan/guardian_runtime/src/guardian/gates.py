@@ -38,7 +38,7 @@ def resolve_pip_spec(config: GuardianConfig, spec: str) -> ResolvedPackageSpec:
     return ResolvedPackageSpec(ecosystem="pypi", name=name, version=version, original_spec=spec)
 
 
-def check_package(config: GuardianConfig, db: Database, ecosystem: str, name: str, version: str) -> dict:
+def assess_install_candidate(config: GuardianConfig, db: Database, ecosystem: str, name: str, version: str) -> dict:
     resolver = CandidateResolver(config)
 
     package = {
@@ -109,7 +109,7 @@ def gate_install(config: GuardianConfig, db: Database, package_manager: str, spe
     else:
         raise ValueError(f"unsupported package manager: {package_manager}")
 
-    results = [check_package(config, db, item.ecosystem, item.name, item.version) for item in resolved]
+    results = [assess_install_candidate(config, db, item.ecosystem, item.name, item.version) for item in resolved]
     blocked = any(result["blocked"] for result in results)
     payload = {"package_manager": package_manager, "blocked": blocked, "packages": results, "command": command}
     if blocked or not execute:

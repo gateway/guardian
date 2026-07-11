@@ -7,6 +7,10 @@ description: Ephemerally clone public GitHub repos, run budgeted Guardian scans 
 
 Use this skill when the user wants to scan public GitHub repositories they do not own, find credible dependency-security issues, and possibly prepare a maintainer-friendly advisory PR afterward.
 
+## Dependency Addition Guard
+
+Before proposing a dependency version in an upstream fix, run the bundled `guardian check-package <ecosystem> <name> [version] --json`. Do not recommend a blocked target; explain warning evidence before continuing.
+
 ## Workflow
 
 1. Choose a small repo batch.

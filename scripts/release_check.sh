@@ -29,7 +29,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "== plugin manifest =="
-python3 "$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py" "$PLUGIN_ROOT"
+python3 "$REPO_ROOT/scripts/validate_codex_plugin.py"
 
 echo "== Claude plugin packaging =="
 python3 "$REPO_ROOT/scripts/validate_claude_plugin.py"
@@ -65,10 +65,28 @@ PY
 echo "== fixture scans =="
 python3 "$REPO_ROOT/scripts/run_fixture_tests.py"
 
+echo "== pre-install gate =="
+python3 "$REPO_ROOT/scripts/test_preinstall_gate.py"
+
 echo "== local Codex marketplace install =="
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin marketplace add "$REPO_ROOT" >/tmp/guardian-marketplace-add.txt
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin list --marketplace guardian >/tmp/guardian-marketplace-list.txt
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin add guardian-security-scan@guardian >/tmp/guardian-plugin-add.txt
-"$CODEX_HOME_RELEASE/plugins/cache/guardian/guardian-security-scan/"*/scripts/guardian report summary --json >/tmp/guardian-installed-smoke.json
+INSTALLED_PLUGIN_ROOT="$(find "$CODEX_HOME_RELEASE/plugins/cache/guardian/guardian-security-scan" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+"$INSTALLED_PLUGIN_ROOT/scripts/guardian" report summary --json >/tmp/guardian-installed-smoke.json
+GUARDIAN_STATE_DIR="$CODEX_HOME_TMP/state-codex-hook" \
+  "$INSTALLED_PLUGIN_ROOT/hooks/preinstall_gate.py" <<'JSON' >/tmp/guardian-codex-hook.json
+{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm install @beproduct/nestjs-auth@0.1.18"}}
+JSON
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/guardian-codex-hook.json").read_text())
+decision = (payload.get("hookSpecificOutput") or {}).get("permissionDecision")
+if decision != "deny":
+    raise SystemExit(f"installed Codex hook did not deny fixture: {payload}")
+print("installed Codex hook smoke passed")
+PY
 
 echo "release checks passed"

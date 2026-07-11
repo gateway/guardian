@@ -26,6 +26,7 @@ Run `/reload-plugins` or start a new Claude Code session. Guardian skills are na
 
 ```text
 /guardian-security-scan:guardian-project-scan
+/guardian-security-scan:guardian-check-package
 /guardian-security-scan:guardian-daily-watch
 /guardian-security-scan:guardian-repo-scout
 /guardian-security-scan:guardian-package-diet
@@ -116,5 +117,6 @@ The temporary state directory keeps smoke output from mixing with your real `~/.
 - The scanner runtime uses the Python standard library only.
 - Local state is stored outside the plugin at `~/.guardian-security-scan` unless `GUARDIAN_STATE_DIR` is set.
 - GitHub API tokens are optional. `GITHUB_TOKEN`, `GH_TOKEN`, or an authenticated GitHub CLI improve rate limits for deeper advisory checks.
-- No hooks or MCP servers are enabled by default; Guardian contributes skills and a `guardian` executable wrapper.
+- Guardian enables a narrow `PreToolUse` package-install hook plus its skills and `guardian` executable wrapper. It does not bundle an MCP server.
+- The hook checks common npm and Python dependency additions before execution, blocks exact malicious-catalog matches, pauses high-signal review cases, and fails open with a warning when live sources are unavailable.
 - Use Sonnet/low or normal effort for smoke scans and routine summaries. Save Opus/High for complex advisory interpretation, PR wording, or remediation tradeoff review.

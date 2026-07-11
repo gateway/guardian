@@ -45,6 +45,8 @@ The database stores inventory runs, current package state, advisory records, fin
 
 Guardian also stores install-script observations by project, ecosystem, package, version, and evidence source. This history lets it distinguish a package that has always required install-time behavior from a dependency update that newly introduced it.
 
+Pre-install checks cache complete package verdicts by ecosystem, normalized name, and requested version. Incomplete network results are not cached as clean verdicts.
+
 The database is what lets Guardian answer operational questions across runs:
 
 - Was this finding new today?
@@ -90,6 +92,24 @@ Guardian treats install-time behavior as a separate evidence class from publishe
 New dependencies with install-time behavior default to `watch`. A dependency that changes from no install script to an install script, or whose installed script body changes without a version change, defaults to `fix this week`. Corroborating malicious-package intelligence may raise the final posture separately.
 
 Install-script signals follow snapshot discipline: Guardian emits the change once, stores the new observation, and does not repeat the alert while the evidence remains unchanged.
+
+## Typosquat And Slopsquat Signals
+
+Guardian compares only newly introduced package names, plus explicit pre-install checks, against ranked top-5,000 npm and PyPI name snapshots. It uses bounded Damerau-Levenshtein distance and targeted confusion transforms for transpositions, separators, common affixes, digit/letter substitutions, and npm scope lookalikes.
+
+Name similarity is behavioral evidence, not proof that a package is malicious. Exact popular names are never flagged merely for being popular. Legitimate similar names can be accepted locally with:
+
+```bash
+guardian policy accept-name <npm|pypi> <name> --reason "verified publisher and repository"
+```
+
+Scan-time typo checks follow snapshot discipline: they run only for names first seen in the current inventory run, not against every package on every scan.
+
+## Pre-Install Boundary
+
+The package gate prioritizes local evidence, then performs bounded registry and OSV checks. Exact malicious-catalog evidence blocks by default. Typosquat, known-vulnerability, and opaque source signals require review. Source outages fail open with an explicit warning so offline development is not disabled.
+
+The hook reduces accidental agent installs but is not a sandbox. Host support for shell `PreToolUse` interception can vary, requirements files are not expanded by the hook, and unknown installers may bypass it. Skill instructions therefore retain an explicit package-check step as defense in depth.
 
 ## HTTP Reliability And Cache
 

@@ -146,6 +146,13 @@ def build_parser() -> argparse.ArgumentParser:
     export_catalog = export_sub.add_parser("exact-match-catalog")
     export_catalog.add_argument("--json", action="store_true")
 
+    package_check = sub.add_parser("check-package")
+    package_check.add_argument("ecosystem", choices=["npm", "pypi"])
+    package_check.add_argument("name")
+    package_check.add_argument("version", nargs="?")
+    package_check.add_argument("--max-seconds", type=float)
+    package_check.add_argument("--json", action="store_true")
+
     gate = sub.add_parser("gate")
     gate_sub = gate.add_subparsers(dest="gate_command", required=True)
     check = gate_sub.add_parser("check-package")
@@ -173,6 +180,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_exc.add_argument("--json", action="store_true")
     list_exc = policy_sub.add_parser("list-exceptions")
     list_exc.add_argument("--json", action="store_true")
+    accept_name = policy_sub.add_parser("accept-name")
+    accept_name.add_argument("ecosystem", choices=["npm", "pypi"])
+    accept_name.add_argument("name")
+    accept_name.add_argument("--reason", default="operator confirmed this package name")
+    accept_name.add_argument("--created-by")
+    accept_name.add_argument("--json", action="store_true")
 
     watchlist = sub.add_parser("watchlist")
     watchlist_sub = watchlist.add_subparsers(dest="watchlist_command", required=True)
