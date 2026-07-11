@@ -32,6 +32,8 @@ def _apply_advisory_context(issue: dict, advisory: dict | None) -> None:
     source = advisory.get("source")
     if source == "local-catalog" and raw.get("source_type") != "official-advisory-db":
         issue["malicious_package"] = True
+    if source == "osv-malicious":
+        issue["malicious_package"] = True
     if source == "kev":
         issue["known_exploited"] = True
         if str(raw.get("knownRansomwareCampaignUse", "")).lower() == "known":
@@ -97,11 +99,17 @@ def grouped_issues(db: Database) -> list[dict]:
                 "known_exploited": False,
                 "known_ransomware_use": False,
                 "malicious_package": False,
+                "corroborated_malicious": False,
                 "epss": None,
                 "kev_date_added": None,
             },
         )
         _apply_advisory_context(issue, advisory_dict)
+        if finding["advisory_source"] == "local-catalog" and advisory_dict:
+            raw = _advisory_raw(advisory_dict)
+            version_state = ((raw.get("verification") or {}).get("versions") or {}).get(finding["version"]) or {}
+            if version_state.get("status") == "corroborated":
+                issue["corroborated_malicious"] = True
         if severity_rank(finding.get("severity")) > severity_rank(issue["severity"]):
             issue["severity"] = finding.get("severity") or "unknown"
         if advisory_dict and advisory_dict.get("summary") and not issue.get("summary"):

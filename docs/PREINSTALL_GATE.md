@@ -13,6 +13,8 @@ For each proposed package, Guardian checks in this order:
 
 Complete results are cached in local SQLite for 24 hours by default. Repeat checks normally avoid network calls.
 
+When a prior project scan already cached fresh exact-version registry intelligence, the gate reuses it before making a registry request. New registry observations invalidate older package verdicts for the same exact version.
+
 ## Direct CLI Use
 
 ```bash

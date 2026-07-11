@@ -54,6 +54,9 @@ class GuardianConfig:
     preinstall_gate_cache_ttl_seconds: int = 86400
     npm_registry_url: str = "https://registry.npmjs.org"
     pypi_registry_url: str = "https://pypi.org/pypi"
+    registry_metadata_ttl_seconds: int = 604800
+    registry_recent_release_hours: int = 72
+    registry_intel_max_packages: int = 100
     api_request_min_interval_seconds: float = 0.25
     ghsa_max_workers: int = 2
     osv_batch_delay_seconds: float = 0.1
@@ -73,7 +76,7 @@ class GuardianConfig:
     epss_api_url: str = "https://api.first.org/data/v1/epss"
     epss_high_percentile: float = 0.95
     epss_high_score: float = 0.2
-    user_agent: str = "guardian/1.2.0"
+    user_agent: str = "guardian/1.3.0"
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "GuardianConfig":

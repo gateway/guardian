@@ -1,8 +1,8 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "displayName": "Guardian Security Scan",
-  "description": "Guardian scans npm and Python projects for package risk and checks proposed dependencies before installation.",
+  "description": "Guardian scans npm and Python package risk, checks installs, and verifies malicious-package intelligence.",
   "author": {
     "name": "Dreaming Computers",
     "url": "https://github.com/gateway"

@@ -181,11 +181,11 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Audit `osv_matching.py` + `advisories.py` for `MAL-*` handling; add explicit handling, source labeling, and a fixture with a known `MAL-*` id.
-- [ ] Implement OpenSSF malicious-packages ingest source in `threat_intel.py` (new source entry in `threat_intel_sources.json` default set, disabled by default, enabled by deep/daily-refresh scan modes).
-- [ ] Implement `guardian catalog verify` (new `catalog_verify.py` + CLI wiring) with per-entry status output and JSON persistence.
-- [ ] Implement hash-manifest-verified catalog refresh (`guardian catalog refresh`), fail-closed on mismatch, with `source_contract` reporting.
-- [ ] Docs: SOURCES.md — full source matrix (what each feed contributes, freshness, auth needs); TRUST_MODEL.md — catalog verification and refresh integrity model.
+- [x] Audit `osv_matching.py` + `advisories.py` for `MAL-*` handling; add explicit handling, source labeling, and a fixture with a known `MAL-*` id.
+- [x] Implement OpenSSF malicious-packages ingest source in `threat_intel.py` (new additive source entry disabled by default and enabled by deep/handoff or explicit refresh modes).
+- [x] Implement `guardian catalog verify` (`catalog_verify.py` + CLI wiring) with exact-version status output and JSON persistence.
+- [x] Implement hash-manifest-verified catalog refresh (`guardian catalog refresh`), fail-closed on mismatch, with `source_contract` reporting.
+- [x] Docs: SOURCES.md — full source matrix (what each feed contributes, freshness, auth needs); TRUST_MODEL.md — catalog verification and refresh integrity model.
 
 **Acceptance:** `catalog verify` on the shipped catalogs completes with per-entry statuses and no crashes offline (reports `skipped`); a fixture catalog entry corroborated by an OSV MAL id shows grade `corroborated-malicious` in scan output.
 
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 - Extend `registries.py` (or a new `registry_intel.py` using the WS7 HTTP layer) to extract, per package:
   - npm: `time` (per-version publish timestamps), `maintainers`, `deprecated`, `repository.url`, `dist.attestations` presence (provenance), `dist.unpackedSize`, `hasInstallScript` where present.
   - PyPI: `info.project_urls`/`home_page`, per-release `upload_time`, `yanked` flags. (PyPI JSON has no maintainer-change API — record what's available, don't fake it.)
-- New table `registry_metadata_state` (root-independent — keyed by ecosystem/name): latest known version, publish timestamp, maintainers hash, provenance flag, deprecated flag, size, fetched_at. Diff on refresh.
+- New table `registry_metadata_state` (root-independent, keyed by ecosystem/name/exact version so prior evidence is retained): publish timestamp, maintainers hash, provenance flag, deprecated/yanked flags, repository URL, size, install behavior, fetched_at. Diff on adoption.
 - Signals emitted (all graded per §3):
   - `version-published-recently` (<72h at scan time, and the project just adopted it) → `behavioral-watch`
   - `maintainer-set-changed` since last snapshot → `behavioral-watch`
@@ -211,12 +211,12 @@ CREATE TABLE IF NOT EXISTS install_script_state (
 
 **Tasks:**
 
-- [ ] Extend registry fetch to capture the field set above (npm + PyPI), tolerating absent fields.
-- [ ] Add `registry_metadata_state` table + diff logic + graded signal emission into `triage_signals.py`.
-- [ ] Wire into scan modes (`scan_modes.py`): off for `daily` default, on for changed packages, on for deep modes; always available to WS2 gate cache-first.
-- [ ] Surface in `behavioral_signals` report section with the same snapshot discipline (alert once per change).
-- [ ] Fixtures: canned registry JSON responses (offline test doubles) for each signal; maintainer-drift double-scan test.
-- [ ] Docs: SOURCES.md registry-intel section, including rate-limit posture and privacy note (Guardian sends package names to registries — already true today via `LatestVersionResolver`; document it).
+- [x] Extend registry fetch to capture the field set above (npm + PyPI), tolerating absent fields honestly.
+- [x] Add `registry_metadata_state` table + exact-version diff logic + graded signal emission in `registry_intel.py`.
+- [x] Wire into scan modes (`scan_modes.py`): off for `daily` default, changed versions in standard mode, bounded baseline in deep modes; available to WS2 gate cache-first.
+- [x] Surface in `behavioral_signals` with snapshot discipline (alert once per adopted version) and separate registry source metrics.
+- [x] Fixtures: canned registry JSON responses for every signal family; maintainer/provenance drift double-scan and unchanged zero-request tests.
+- [x] Docs: SOURCES.md registry-intel section, including rate-limit posture and privacy note.
 
 **Acceptance:** a daily-watch over unchanged repos performs zero registry calls; a scan adopting a 1-day-old version emits `version-published-recently` once.
 

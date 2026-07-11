@@ -11,6 +11,7 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 - Inventories npm and Python dependency evidence from manifests, lockfiles, and optional installed metadata.
 - Matches exact package versions against vulnerability, exploit-intelligence, and malicious-package sources.
 - Detects when a dependency newly gains install-time behavior, including npm lifecycle scripts and selected Python source-install evidence.
+- Reviews newly adopted registry versions for recent publication, maintainer drift, disappeared provenance, deprecation/yanking, and repository changes.
 - Checks proposed packages before installation, including probable typosquats, published advisories, install behavior, and exact malicious-catalog matches.
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.
 - Tracks scans over time so you can see new, resolved, changed, and unchanged findings.
@@ -268,6 +269,8 @@ Guardian uses multiple sources because no single feed is complete:
 - FIRST EPSS
 - NVD enrichment
 - GitLab Advisory Database ingest
+- OpenSSF Malicious Packages via mode-gated sparse ingest
+- npm and PyPI registry behavioral metadata for newly adopted versions
 - Bundled exact-match public malicious-package campaign catalogs
 
 Guardian reports what configured sources currently know about package versions it can see. It cannot prove a project is safe from unknown zero-days.
@@ -281,6 +284,7 @@ Guardian is designed to be lightweight for local agent workflows and scheduled s
 - The scanner runtime uses the Python standard library only.
 - Normal reports are compact so agents read summaries instead of raw lockfiles.
 - Daily watch skips unchanged dependency inventories.
+- Unchanged daily-watch roots make zero registry-intelligence calls; standard scans skip registry enumeration on the first baseline.
 - Live-source requests share bounded retry, pacing, and conditional disk caching so large feeds are not downloaded again while fresh.
 - Pre-install package verdicts are cached in SQLite for 24 hours by default; repeat checks are normally sub-second and consume no model reasoning unless evidence needs explanation.
 - Live advisory refresh and installed-tree corroboration are explicit options.
@@ -295,6 +299,7 @@ Default scans are intentionally conservative. Deeper live-source checks, install
 - [`docs/AUTOMATION.md`](docs/AUTOMATION.md): daily watch, freshness, and scan-state behavior.
 - [`docs/CLI.md`](docs/CLI.md): direct CLI usage, scan modes, tokens, and local state.
 - [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md): package checks, hooks, verdicts, false positives, and fail-open behavior.
+- [`plugins/guardian-security-scan/docs/SOURCES.md`](plugins/guardian-security-scan/docs/SOURCES.md): source matrix, freshness, authentication, registry privacy, and catalog integrity.
 - [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md): Claude Code install, validation, and smoke tests.
 - [`docs/REPO_SCOUT.md`](docs/REPO_SCOUT.md): temporary public GitHub repo scouting.
 - [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md): security boundary, source model, and known limits.

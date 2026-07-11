@@ -102,9 +102,13 @@ def build_operator_view(
     }
     behavioral_fix = sum(1 for item in behavioral_signals if item.get("posture") == "fix_this_week")
     behavioral_watch = sum(1 for item in behavioral_signals if item.get("posture") == "watch")
+    behavioral_info = sum(1 for item in behavioral_signals if item.get("posture") == "info")
     priority_headline = triage["headline"]
     if behavioral_signals:
-        priority_headline += f"; behavioral: {behavioral_fix} fix this week, {behavioral_watch} watch"
+        priority_headline += (
+            f"; behavioral: {behavioral_fix} fix this week, "
+            f"{behavioral_watch} watch, {behavioral_info} info"
+        )
     return {
         "root_path": root_filter,
         "generated_at": utc_now(),
@@ -127,6 +131,7 @@ def build_operator_view(
         "behavioral_signal_counts": {
             "fix_this_week": behavioral_fix,
             "watch": behavioral_watch,
+            "info": behavioral_info,
         },
         "vendored_groups": grouped_vendored,
         "bottom_line": operator_recommendations(triage["package_actions"]),

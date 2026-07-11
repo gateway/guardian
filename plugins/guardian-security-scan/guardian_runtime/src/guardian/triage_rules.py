@@ -25,6 +25,8 @@ def _issue_package_normalized_name(package: dict) -> str:
 def _issue_signal_grade(issue: dict) -> str:
     """Classify advisory evidence strength without conflating it with severity."""
 
+    if issue.get("corroborated_malicious"):
+        return SignalGrade.CORROBORATED_MALICIOUS.value
     if issue.get("malicious_package"):
         return SignalGrade.CATALOG_MATCH.value
     return SignalGrade.ADVISORY.value

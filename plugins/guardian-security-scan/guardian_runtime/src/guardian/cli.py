@@ -8,6 +8,8 @@ from pathlib import Path
 
 from .advisories import refresh_findings
 from .catalog import export_exact_match_catalog
+from .catalog_integrity import refresh_verified_catalogs
+from .catalog_verify import verify_local_catalogs
 from .config import DEFAULT_CONFIG_PATH, load_config, save_config
 from .check_package import check_package as check_package_fast, exit_code_for_verdict
 from .cli_output import (
@@ -102,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
                 include_installed=args.include_installed,
                 include_ghsa=args.include_ghsa,
                 include_threat_intel=args.include_threat_intel,
+                include_openssf_malicious=args.include_openssf_malicious,
+                include_registry_intel=args.include_registry_intel,
                 write_handoff=args.handoff,
                 compact=None if args.output == "auto" else args.output == "compact",
             )
@@ -114,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
                 include_ghsa=mode_options["include_ghsa"],
                 ghsa_max_packages=args.ghsa_max_packages,
                 include_threat_intel=mode_options["include_threat_intel"],
+                include_openssf_malicious=mode_options["include_openssf_malicious"],
+                registry_intel_mode=mode_options["registry_intel_mode"],
                 threat_intel_severity_floor=args.threat_intel_severity_floor,
                 write_handoff=mode_options["write_handoff"],
                 compact=mode_options["compact"],
@@ -139,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
                 ghsa_max_packages=args.ghsa_max_packages,
                 refresh_advisories=args.refresh_advisories,
                 include_threat_intel=args.include_threat_intel,
+                include_openssf_malicious=args.include_openssf_malicious,
+                include_registry_intel=args.include_registry_intel,
                 threat_intel_severity_floor=args.threat_intel_severity_floor,
                 live_enrichment=args.live_enrichment,
                 engine=args.engine,
@@ -235,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
                     root_paths=args.root or None,
                     ecosystems=args.ecosystem or None,
                     severity_floor=args.severity_floor,
+                    include_malicious_sources=args.include_openssf_malicious,
                 )
                 if args.json:
                     print_json(payload)
@@ -243,9 +252,10 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"catalog: {payload['catalog_path']}")
                     print(f"report: {payload['markdown_path']}")
                     for source in payload["source_reports"]:
+                        files_read = source.get("yaml_files_read", source.get("json_files_read", 0))
                         print(
                             f"  {source['id']}: {source.get('entries_written', 0)} entries "
-                            f"from {source.get('yaml_files_read', 0)} advisory files"
+                            f"from {files_read} advisory files"
                         )
                 return 0
             if args.intel_command == "audit-parser":
@@ -588,6 +598,35 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(str(path))
             return 0
+
+        if args.command == "catalog":
+            if args.catalog_command == "verify":
+                payload = verify_local_catalogs(config)
+                if args.json:
+                    print_json(payload)
+                else:
+                    counts = payload["entry_counts"]
+                    print(
+                        "catalog verification: "
+                        + ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+                    )
+                    print(f"exact versions queried: {payload['exact_versions_queried']}")
+                    if payload["source_errors"]:
+                        print("OSV unavailable for one or more batches; prior verification was preserved")
+                return 0 if payload["status"] == "ok" else 1
+            if args.catalog_command == "refresh":
+                payload = refresh_verified_catalogs(config, base_url=args.base_url)
+                if args.json:
+                    print_json(payload)
+                else:
+                    print(
+                        f"catalog refresh: {payload['status']} "
+                        f"({sum(1 for item in payload['files'] if item.get('status') == 'verified')}/"
+                        f"{payload['files_expected']} files verified)"
+                    )
+                    for error in payload["errors"][:5]:
+                        print(f"  {error}")
+                return 0 if payload["status"] == "ok" else 1
 
         if args.command == "check-package":
             payload = check_package_fast(

@@ -41,7 +41,7 @@ Guardian uses SQLite for local state. The default path is:
 ~/.guardian-security-scan/guardian.db
 ```
 
-The database stores inventory runs, current package state, advisory records, findings, triage snapshots, policy exceptions, and remediation lifecycle data. This state is created on the user's machine at runtime and is not included in the plugin repository.
+The database stores inventory runs, current package state, advisory records, findings, triage snapshots, policy exceptions, remediation lifecycle data, exact-version registry metadata history, and cached pre-install verdicts. This state is created on the user's machine at runtime and is not included in the plugin repository.
 
 Guardian also stores install-script observations by project, ecosystem, package, version, and evidence source. This history lets it distinguish a package that has always required install-time behavior from a dependency update that newly introduced it.
 
@@ -67,6 +67,8 @@ Live on normal scans:
 Live when requested:
 
 - GitHub Security Advisories exact package/version lookups when `--include-ghsa` is enabled or a selected scan mode enables GHSA.
+- OpenSSF Malicious Packages sparse ingest in deep/handoff mode or explicit threat-intel ingest.
+- Registry metadata for newly observed versions in standard mode and a bounded baseline in deep/handoff mode.
 
 Local:
 
@@ -75,6 +77,26 @@ Local:
 - Previous scan snapshots and local remediation state in SQLite.
 
 This means a daily automation does not only test against a static database. It re-inventories the repo, refreshes configured live sources where enabled, checks local catalogs, then compares the new result to the prior SQLite snapshot.
+
+## Catalog Verification And Integrity
+
+Local exact-match entries can carry per-version OSV verification. `corroborated` means OSV/OpenSSF independently returned active malicious-package evidence for that exact package/version. `withdrawn` means the matching malicious record is withdrawn. `uncorroborated` means Guardian's local entry remains visible but OSV did not independently match it. An outage is `skipped`, not uncorroborated, and does not overwrite prior state.
+
+Verified remote refreshes use the SHA-256 manifest bundled with the installed plugin. Guardian stages all files, verifies the entire set, validates JSON shape, and only then atomically replaces the managed local set. Hashes are not signatures: the Git/plugin distribution channel remains the trust root, and a compromise of that channel could replace both manifest and files.
+
+## Registry Behavioral Intelligence
+
+Guardian records field-level npm/PyPI observations for exact versions adopted by a project. It can surface recent publication, npm maintainer-set drift, disappeared npm attestations, deprecation, PyPI yanking, and missing/changed repository URLs.
+
+These are graded behavioral signals, not proof of compromise. Provenance is recorded as unknown where a registry does not expose an equivalent field. PyPI does not provide npm-style maintainer history, so Guardian does not invent it. Informational registry hygiene is labeled `info` and does not inflate fix/watch counts.
+
+Cost and privacy boundaries:
+
+- unchanged daily-watch roots make zero registry-intelligence calls;
+- standard first scans do not enumerate every package at the registry;
+- changed versions are bounded by a package cap and cached for seven days in SQLite;
+- package names and exact versions are sent to the relevant public registry;
+- normalized fields and maintainer hashes are stored, not full response bodies in SQLite.
 
 ## Behavioral Install Signals
 

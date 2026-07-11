@@ -117,6 +117,28 @@ CREATE TABLE IF NOT EXISTS check_package_cache (
 CREATE INDEX IF NOT EXISTS idx_check_package_cache_checked
 ON check_package_cache(checked_at DESC);
 
+CREATE TABLE IF NOT EXISTS registry_metadata_state (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ecosystem TEXT NOT NULL,
+  package_name TEXT NOT NULL,
+  normalized_name TEXT NOT NULL,
+  version TEXT NOT NULL,
+  published_at TEXT,
+  maintainers_hash TEXT,
+  provenance_present INTEGER,
+  deprecated INTEGER,
+  yanked INTEGER,
+  repo_url TEXT,
+  size_bytes INTEGER,
+  has_install_script INTEGER,
+  metadata_json TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  UNIQUE(ecosystem, normalized_name, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_registry_metadata_package
+ON registry_metadata_state(ecosystem, normalized_name, fetched_at DESC);
+
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,

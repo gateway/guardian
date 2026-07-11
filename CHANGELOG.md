@@ -2,6 +2,31 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.3.0 - 2026-07-11
+
+### Added
+
+- Explicit `osv-malicious` source labeling and catalog-grade handling for OSV/OpenSSF `MAL-*` exact-version matches.
+- Optional package-scoped OpenSSF Malicious Packages sparse ingest for deep, handoff, and explicit threat-intelligence runs.
+- `guardian catalog verify` with per-version `corroborated`, `uncorroborated`, `withdrawn`, and outage-safe `skipped` states.
+- `guardian catalog refresh` with a bundled SHA-256 manifest, complete-set validation, managed catalog storage, and fail-closed mismatch handling.
+- Exact-version npm/PyPI registry metadata history for publish age, maintainer drift, npm attestations, deprecation/yanking, repository changes, package size, and install behavior.
+- Mode-gated registry intelligence with one-time behavioral signals and a seven-day SQLite metadata cache.
+
+### Changed
+
+- Daily and unchanged watch scans make zero registry-intelligence calls; standard mode checks only versions introduced beyond an existing baseline.
+- Deep and handoff modes enable a bounded registry baseline and optional OpenSSF malicious-package ingest.
+- Verified managed catalogs supersede seeded copies without duplicating findings.
+- Pre-install checks reuse fresh registry state and invalidate cached verdicts when registry evidence changes.
+
+### Verified
+
+- Live OpenSSF sparse ingest matched `MAL-2022-2` from the current upstream repository and its disposable checkout was removed.
+- Live Guardian catalog refresh downloaded and SHA-256 verified all eight shipped catalogs from the public repository.
+- Active, withdrawn, uncorroborated, offline, malformed, and hash-mismatch catalog paths are covered by deterministic tests.
+- A two-version registry fixture emits each expected signal once, while its baseline and unchanged repeat perform zero registry requests.
+
 ## 1.2.0 - 2026-07-11
 
 ### Added

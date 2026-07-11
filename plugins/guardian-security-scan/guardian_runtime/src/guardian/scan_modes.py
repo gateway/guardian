@@ -8,6 +8,8 @@ SCAN_MODE_PRESETS = {
         "include_installed": False,
         "include_ghsa": False,
         "include_threat_intel": True,
+        "include_openssf_malicious": False,
+        "registry_intel_mode": "off",
         "write_handoff": False,
         "compact": True,
         "snapshot_full": True,
@@ -17,6 +19,8 @@ SCAN_MODE_PRESETS = {
         "include_installed": False,
         "include_ghsa": False,
         "include_threat_intel": True,
+        "include_openssf_malicious": False,
+        "registry_intel_mode": "changed",
         "write_handoff": False,
         "compact": False,
         "snapshot_full": True,
@@ -26,6 +30,8 @@ SCAN_MODE_PRESETS = {
         "include_installed": True,
         "include_ghsa": True,
         "include_threat_intel": True,
+        "include_openssf_malicious": True,
+        "registry_intel_mode": "deep",
         "write_handoff": False,
         "compact": False,
         "snapshot_full": True,
@@ -35,6 +41,8 @@ SCAN_MODE_PRESETS = {
         "include_installed": True,
         "include_ghsa": True,
         "include_threat_intel": True,
+        "include_openssf_malicious": True,
+        "registry_intel_mode": "deep",
         "write_handoff": True,
         "compact": False,
         "snapshot_full": True,
@@ -49,6 +57,8 @@ def apply_scan_mode(
     include_installed: bool = False,
     include_ghsa: bool = False,
     include_threat_intel: bool = False,
+    include_openssf_malicious: bool = False,
+    include_registry_intel: bool = False,
     write_handoff: bool = False,
     compact: bool | None = None,
 ) -> dict:
@@ -61,6 +71,10 @@ def apply_scan_mode(
         preset["include_ghsa"] = True
     if include_threat_intel:
         preset["include_threat_intel"] = True
+    if include_openssf_malicious:
+        preset["include_openssf_malicious"] = True
+    if include_registry_intel and preset["registry_intel_mode"] == "off":
+        preset["registry_intel_mode"] = "changed"
     if write_handoff:
         preset["write_handoff"] = True
     if compact is not None:

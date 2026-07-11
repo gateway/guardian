@@ -8,11 +8,11 @@ from collections import Counter
 from pathlib import Path
 
 from .advisories import refresh_findings
+from .behavioral_signals import behavioral_signals_for_runs
 from .config import GuardianConfig
 from .db import Database
 from .dependency_files import fingerprint_dependency_files
 from .intel import severity_rank
-from .install_scripts import detect_install_script_changes
 from .inventory import DEFAULT_ECOSYSTEMS, scan_roots
 from .reporting import (
     build_operator_view,
@@ -27,7 +27,6 @@ from .remediation import sync_remediation_lifecycle
 from .scan_summary import build_compact_operator_view
 from .source_contract import live_source_contract, threat_intel_source_contract
 from .threat_intel import ensure_default_threat_intel_sources, ingest_threat_intel
-from .typosquat import detect_new_package_typosquats
 from .util import utc_now, write_json
 
 
@@ -47,6 +46,8 @@ def run_project_scan(
     include_ghsa: bool = False,
     ghsa_max_packages: int = 50,
     include_threat_intel: bool = False,
+    include_openssf_malicious: bool = False,
+    registry_intel_mode: str = "off",
     threat_intel_severity_floor: str | None = "high",
     write_handoff: bool = False,
     compact: bool = False,
@@ -132,6 +133,7 @@ def run_project_scan(
     inventory_runs = []
     threat_intel = None
     behavioral_signals: list[dict] = []
+    registry_intel: dict = {"status": "disabled", "signals": [], "http_stats": {}}
     refresh = {}
     triage = None
     snapshot = None
@@ -174,14 +176,18 @@ def run_project_scan(
         ),
         )
         scan_scope = _scan_scope(db, root, include_installed=include_installed)
-        behavioral_signals = run_phase(
+        behavioral_result = run_phase(
             "behavioral-signals",
-            lambda: _behavioral_signals_for_runs(
+            lambda: behavioral_signals_for_runs(
+                config,
                 db,
                 root,
                 [item["run_id"] for item in inventory_runs if item.get("run_id") is not None],
+                registry_intel_mode=registry_intel_mode,
             ),
         )
+        behavioral_signals = behavioral_result["signals"]
+        registry_intel = behavioral_result["registry_intel"]
         large_reasons = _large_repo_reasons(config, scan_scope)
         if large_reasons:
             scan_policy["large_repo_mode"] = True
@@ -202,6 +208,7 @@ def run_project_scan(
                     root_paths=[root],
                     ecosystems=selected_ecosystems,
                     severity_floor=threat_intel_severity_floor,
+                    include_malicious_sources=include_openssf_malicious,
                 ),
                 required=False,
             )
@@ -315,6 +322,7 @@ def run_project_scan(
         "threat_intel": threat_intel,
         "refresh": refresh,
         "behavioral_signals": behavioral_signals,
+        "registry_intel": registry_intel,
         "operator_view": operator_view,
         "source_status": {
             "osv": {
@@ -370,7 +378,6 @@ def run_project_scan(
     write_json(path, payload)
     payload["report_path"] = str(path)
     return payload
-
 
 def _scan_scope(db: Database, root: str, *, include_installed: bool) -> dict:
     """Summarize dependency-surface size for budgets and operator evidence."""
@@ -581,9 +588,21 @@ def run_daily(
         for item in inventory_runs
         if item.get("run_id") is not None
     }
-    behavioral_signals_by_root = {
-        root: _behavioral_signals_for_runs(db, root, run_ids_by_root.get(root, []))
+    behavioral_results_by_root = {
+        root: behavioral_signals_for_runs(
+            config,
+            db,
+            root,
+            run_ids_by_root.get(root, []),
+            registry_intel_mode="off",
+        )
         for root in roots
+    }
+    behavioral_signals_by_root = {
+        root: result["signals"] for root, result in behavioral_results_by_root.items()
+    }
+    registry_intel_by_root = {
+        root: result["registry_intel"] for root, result in behavioral_results_by_root.items()
     }
     threat_intel = None
     if include_threat_intel:
@@ -594,6 +613,7 @@ def run_daily(
             root_paths=roots,
             ecosystems=ecosystems,
             severity_floor=threat_intel_severity_floor,
+            include_malicious_sources=False,
         )
     refresh = refresh_findings(
         config=config,
@@ -655,6 +675,7 @@ def run_daily(
         "triage": triage,
         "operator_view": operator_view,
         "behavioral_signals_by_root": behavioral_signals_by_root,
+        "registry_intel_by_root": registry_intel_by_root,
         "operator_report_path": operator_report_path,
         "snapshots": snapshots,
         "comparisons": comparisons,
@@ -677,6 +698,8 @@ def run_daily_watch(
     ghsa_max_packages: int,
     refresh_advisories: bool = False,
     include_threat_intel: bool = False,
+    include_openssf_malicious: bool = False,
+    include_registry_intel: bool = False,
     threat_intel_severity_floor: str | None = None,
     live_enrichment: bool = False,
     engine: str | None = None,
@@ -723,6 +746,7 @@ def run_daily_watch(
 
     inventory_runs = []
     behavioral_signals_by_root: dict[str, list[dict]] = {}
+    registry_intel_by_root: dict[str, dict] = {}
     if roots_to_inventory:
         inventory_runs = scan_roots(
             config=config,
@@ -738,12 +762,28 @@ def run_daily_watch(
             for item in inventory_runs
             if item.get("run_id") is not None
         }
-        behavioral_signals_by_root = {
-            root: _behavioral_signals_for_runs(db, root, run_ids_by_root.get(root, []))
+        behavioral_results_by_root = {
+            root: behavioral_signals_for_runs(
+                config,
+                db,
+                root,
+                run_ids_by_root.get(root, []),
+                registry_intel_mode="changed" if include_registry_intel or live_enrichment else "off",
+            )
             for root in roots_to_inventory
         }
-        for root_status in root_statuses:
-            root_status["behavioral_signals"] = behavioral_signals_by_root.get(root_status["root_path"], [])
+        behavioral_signals_by_root = {
+            root: result["signals"] for root, result in behavioral_results_by_root.items()
+        }
+        registry_intel_by_root = {
+            root: result["registry_intel"] for root, result in behavioral_results_by_root.items()
+        }
+    for root_status in root_statuses:
+        root_status["behavioral_signals"] = behavioral_signals_by_root.get(root_status["root_path"], [])
+        root_status["registry_intel"] = registry_intel_by_root.get(
+            root_status["root_path"],
+            {"status": "skipped-unchanged", "signals": [], "http_stats": {"requests": 0}},
+        )
 
     threat_intel = None
     if include_threat_intel:
@@ -754,6 +794,7 @@ def run_daily_watch(
             root_paths=normalized_roots,
             ecosystems=selected_ecosystems,
             severity_floor=threat_intel_severity_floor,
+            include_malicious_sources=include_openssf_malicious or live_enrichment,
         )
 
     if refresh_advisories:
@@ -844,18 +885,3 @@ def run_daily_watch(
     write_json(path, payload)
     payload["report_path"] = str(path)
     return payload
-
-
-def _behavioral_signals_for_runs(db: Database, root: str, run_ids: list[int]) -> list[dict]:
-    """Combine offline behavioral detectors while preserving one priority order."""
-
-    signals = detect_install_script_changes(db, root)
-    signals.extend(detect_new_package_typosquats(db, root, run_ids))
-    return sorted(
-        signals,
-        key=lambda item: (
-            item.get("posture_rank", 9),
-            (item.get("package_name") or "").lower(),
-            item.get("signal_type") or "",
-        ),
-    )

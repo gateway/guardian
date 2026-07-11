@@ -15,6 +15,7 @@ from .config import GuardianConfig
 from .db import Database
 from .integrity import sha256_file
 from .intel import merge_aliases, normalize_severity, severity_from_score, severity_rank
+from .openssf_intel import openssf_entries_for_packages, openssf_sparse_paths_for_packages
 from .source_contract import threat_intel_source_contract
 from .util import normalize_package_name, slugify, utc_now, write_json, write_text
 from .versions import version_range_is_supported, version_satisfies_range
@@ -34,6 +35,17 @@ DEFAULT_THREAT_INTEL_SOURCES = {
             "stale_after_hours": 24,
             "confidence": "Official Advisory Database",
             "description": "MIT-licensed open-source edition of the GitLab Advisory Database.",
+        },
+        {
+            "id": "openssf-malicious-packages",
+            "type": "openssf-malicious-packages",
+            "enabled": False,
+            "repo": "https://github.com/ossf/malicious-packages.git",
+            "license": "Apache-2.0",
+            "ecosystems": ["npm", "pypi"],
+            "stale_after_hours": 24,
+            "confidence": "OpenSSF Malicious Packages",
+            "description": "OpenSSF OSV-format reports for packages identified as malicious or unwanted.",
         }
     ],
 }
@@ -43,7 +55,14 @@ def ensure_default_threat_intel_sources(config: GuardianConfig) -> dict:
     path = Path(config.threat_intel_sources_path)
     if not path.exists():
         write_json(path, DEFAULT_THREAT_INTEL_SOURCES)
-    return load_threat_intel_sources(path)
+        return load_threat_intel_sources(path)
+    payload = load_threat_intel_sources(path)
+    existing_ids = {item.get("id") for item in payload["sources"]}
+    missing = [item for item in DEFAULT_THREAT_INTEL_SOURCES["sources"] if item["id"] not in existing_ids]
+    if missing:
+        payload["sources"].extend(missing)
+        write_json(path, payload)
+    return payload
 
 
 def load_threat_intel_sources(path: Path) -> dict:
@@ -65,6 +84,7 @@ def ingest_threat_intel(
     root_paths: list[str] | None = None,
     ecosystems: list[str] | None = None,
     severity_floor: str | None = None,
+    include_malicious_sources: bool = False,
 ) -> dict:
     source_config = load_threat_intel_sources(source_config_path or Path(config.threat_intel_sources_path))
     packages = _current_unique_packages(db, root_paths=root_paths, ecosystems=ecosystems)
@@ -73,18 +93,24 @@ def ingest_threat_intel(
     source_reports: list[dict] = []
 
     for source in source_config["sources"]:
-        if not source.get("enabled", True):
+        source_type = source.get("type")
+        enabled_for_mode = source.get("enabled", True) or (
+            include_malicious_sources and source_type == "openssf-malicious-packages"
+        )
+        if not enabled_for_mode:
             source_reports.append({"id": source.get("id"), "status": "disabled"})
             continue
-        source_type = source.get("type")
-        if source_type != "gitlab-advisory-db":
+        if source_type not in {"gitlab-advisory-db", "openssf-malicious-packages"}:
             source_reports.append({"id": source.get("id"), "status": "skipped", "reason": f"unsupported type {source_type}"})
             continue
         effective_floor = severity_floor or source.get("severity_floor") or "high"
         selected_index = _filter_index_for_source(package_index, source.get("ecosystems") or [])
         started = time.monotonic()
         try:
-            report = ingest_gitlab_advisory_db_source(config, source, selected_index, effective_floor)
+            if source_type == "gitlab-advisory-db":
+                report = ingest_gitlab_advisory_db_source(config, source, selected_index, effective_floor)
+            else:
+                report = ingest_openssf_malicious_source(config, source, selected_index)
         except Exception as exc:
             report = {
                 "id": source.get("id"),
@@ -183,6 +209,44 @@ def ingest_gitlab_advisory_db_source(
         "package_directories_requested": len(paths),
         "entries_written": len(entries),
         "severity_floor": severity_floor,
+        "entries": entries,
+        **stats,
+    }
+
+
+def ingest_openssf_malicious_source(
+    config: GuardianConfig,
+    source: dict,
+    package_index: dict[tuple[str, str], dict],
+) -> dict:
+    """Sparse-checkout OpenSSF records only for packages in the current inventory."""
+
+    source_id = source["id"]
+    source_dir = _prepare_git_source_dir(config, source)
+    paths = openssf_sparse_paths_for_packages(
+        source_dir,
+        package_index,
+        git_runner=lambda args: _run_git(args, cwd=None, capture=True).stdout,
+    )
+    if source.get("repo") and not source.get("path"):
+        _git_sparse_checkout(source_dir, paths)
+    entries, stats = openssf_entries_for_packages(
+        source_dir=source_dir,
+        package_index=package_index,
+        source_id=source_id,
+        confidence=source.get("confidence") or "OpenSSF Malicious Packages",
+        sparse_paths=paths,
+    )
+    return {
+        "id": source_id,
+        "type": "openssf-malicious-packages",
+        "status": "ok",
+        "path": str(source_dir),
+        "revision": _git_revision(source_dir),
+        "source_health": _source_health(source_dir, source),
+        "license": source.get("license") or "Apache-2.0",
+        "package_directories_requested": len(paths),
+        "entries_written": len(entries),
         "entries": entries,
         **stats,
     }
@@ -331,9 +395,10 @@ def build_threat_intel_markdown(payload: dict) -> str:
         "## Sources",
     ]
     for source in payload["source_reports"]:
+        files_read = source.get("yaml_files_read", source.get("json_files_read", 0))
         lines.append(
             f"- `{source.get('id')}`: {source.get('entries_written', 0)} entries, "
-            f"{source.get('yaml_files_read', 0)} advisory files read, revision `{source.get('revision') or 'unknown'}`"
+            f"{files_read} advisory files read, revision `{source.get('revision') or 'unknown'}`"
         )
         if source.get("advisories_below_severity_floor"):
             lines.append(f"- `{source.get('id')}` below severity floor: {source['advisories_below_severity_floor']}")
@@ -421,6 +486,12 @@ def _filter_index_for_source(
 
 
 def _prepare_gitlab_source_dir(config: GuardianConfig, source: dict) -> Path:
+    return _prepare_git_source_dir(config, source)
+
+
+def _prepare_git_source_dir(config: GuardianConfig, source: dict) -> Path:
+    """Prepare a shallow sparse source checkout shared by advisory databases."""
+
     if source.get("path"):
         path = Path(source["path"])
         if not path.exists():

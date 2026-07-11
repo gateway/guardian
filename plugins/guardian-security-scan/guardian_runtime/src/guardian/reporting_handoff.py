@@ -375,7 +375,7 @@ def _build_clean_handoff_markdown(
     lines.append("## Recommended Next Steps")
     lines.append("")
     if any(item.get("posture") == "fix_this_week" for item in behavioral_signals):
-        lines.append("1. Review the install-time behavior change before accepting the dependency update.")
+        lines.append("1. Review the high-signal dependency behavior change before accepting the update.")
     else:
         lines.append("1. No immediate package remediation needed.")
     lines.append("2. Keep scheduled Guardian watchlist scans enabled so newly published advisories can be caught later.")
@@ -384,7 +384,7 @@ def _build_clean_handoff_markdown(
     lines.append("## Bottom Line")
     lines.append("")
     if behavioral_signals:
-        lines.append("- No published advisory match is currently shown, but the install-time behavior changes below require evidence review.")
+        lines.append("- No published advisory match is currently shown, but the behavioral evidence below should be reviewed in context.")
     else:
         lines.append("- No direct runtime, lockfile, malicious-package, or known-exploited package risk is currently shown by Guardian for this repository.")
     lines.append("- This is not proof that the repo is safe against unknown zero-days; it means no configured source matched the scanned package versions.")

@@ -57,6 +57,29 @@ Check a package before installation:
 
 The package-check exit codes are `0` allow, `1` warn, and `2` block. See [`PREINSTALL_GATE.md`](PREINSTALL_GATE.md) for hook behavior and configuration.
 
+Cross-verify local malicious catalogs against OSV:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian catalog verify --json
+```
+
+Refresh the managed catalog set with the installed SHA-256 manifest:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian catalog refresh --json
+```
+
+Run optional direct OpenSSF malicious-package ingest for the current inventory:
+
+```bash
+./plugins/guardian-security-scan/scripts/guardian intel ingest \
+  --root /path/to/repo \
+  --include-openssf-malicious \
+  --json
+```
+
+Standard scans inspect registry metadata only for versions introduced after a prior inventory. Use `--include-registry-intel` to add that behavior to daily mode, or use `--mode deep` for a bounded baseline plus OpenSSF ingest.
+
 Scout a public GitHub repo with temporary state:
 
 ```bash

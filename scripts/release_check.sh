@@ -50,6 +50,9 @@ done
 echo "== python compile =="
 python3 -m py_compile $(find "$PLUGIN_ROOT/guardian_runtime/src/guardian" -name '*.py' -print)
 
+echo "== catalog manifest =="
+python3 "$REPO_ROOT/scripts/build_catalog_manifest.py" --check
+
 echo "== internal release checks =="
 GUARDIAN_STATE_DIR="$CODEX_HOME_TMP/state-internal" "$PLUGIN_ROOT/scripts/guardian" validate plugin-release --json >/tmp/guardian-release-checks.json
 python3 - <<'PY'
@@ -67,6 +70,12 @@ python3 "$REPO_ROOT/scripts/run_fixture_tests.py"
 
 echo "== pre-install gate =="
 python3 "$REPO_ROOT/scripts/test_preinstall_gate.py"
+
+echo "== catalog intelligence =="
+python3 "$REPO_ROOT/scripts/test_catalog_intel.py"
+
+echo "== registry intelligence =="
+python3 "$REPO_ROOT/scripts/test_registry_intel.py"
 
 echo "== local Codex marketplace install =="
 CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin marketplace add "$REPO_ROOT" >/tmp/guardian-marketplace-add.txt

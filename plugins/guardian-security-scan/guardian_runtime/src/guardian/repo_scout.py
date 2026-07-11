@@ -332,6 +332,8 @@ def run_repo_scout(
                         include_ghsa=mode_options["include_ghsa"],
                         ghsa_max_packages=ghsa_max_packages,
                         include_threat_intel=mode_options["include_threat_intel"],
+                        include_openssf_malicious=mode_options["include_openssf_malicious"],
+                        registry_intel_mode=mode_options["registry_intel_mode"],
                         threat_intel_severity_floor=threat_intel_severity_floor,
                         compact=True,
                         snapshot_full=False,

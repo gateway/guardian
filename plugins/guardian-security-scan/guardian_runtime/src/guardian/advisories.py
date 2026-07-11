@@ -19,7 +19,7 @@ from .intel import (
     merge_aliases,
 )
 from .sources import EPSSClient, GitHubAdvisoriesClient, KEVClient, LocalCatalogMatcher, NVDClient, OSVClient
-from .osv_matching import osv_explicit_versions_exclude_package
+from .osv_matching import osv_explicit_versions_exclude_package, osv_record_is_malicious
 
 
 def refresh_findings(
@@ -96,7 +96,7 @@ def refresh_findings(
         # package/source are closed. This lets a later scan prove that a fix
         # actually removed the matching vulnerable version.
         key = (package["ecosystem"], package["normalized_name"], package["version"])
-        matched_osv_ids = []
+        matched_osv_ids: dict[str, list[str]] = {"osv": [], "osv-malicious": []}
         for vuln_stub in osv_by_package.get(key, []):
             advisory_id = vuln_stub["id"]
             try:
@@ -111,7 +111,8 @@ def refresh_findings(
                 }
             if osv_explicit_versions_exclude_package(vuln, package):
                 continue
-            matched_osv_ids.append(advisory_id)
+            advisory_source = "osv-malicious" if osv_record_is_malicious(vuln) else "osv"
+            matched_osv_ids[advisory_source].append(advisory_id)
             osv_aliases = vuln.get("aliases") or []
             osv_severity = extract_osv_severity(vuln)
             osv_details_url = extract_osv_primary_url(vuln)
@@ -174,7 +175,7 @@ def refresh_findings(
                 "nvd": nvd_enrichment,
             }
             db.upsert_advisory(
-                source="osv",
+                source=advisory_source,
                 advisory_id=advisory_id,
                 summary=summary,
                 severity=severity,
@@ -230,21 +231,26 @@ def refresh_findings(
                 package_name=package["package_name"],
                 normalized_name=package["normalized_name"],
                 version=package["version"],
-                advisory_source="osv",
+                advisory_source=advisory_source,
                 advisory_id=advisory_id,
                 severity=severity,
                 details_url=details_url,
-                evidence="OSV exact version match",
+                evidence=(
+                    "OSV/OpenSSF malicious-package exact version match"
+                    if advisory_source == "osv-malicious"
+                    else "OSV exact version match"
+                ),
             )
             total_findings += 1
         if "osv" not in source_errors:
-            db.resolve_stale_findings(
-                ecosystem=package["ecosystem"],
-                normalized_name=package["normalized_name"],
-                version=package["version"],
-                advisory_source="osv",
-                active_advisory_ids=matched_osv_ids,
-            )
+            for advisory_source, active_ids in matched_osv_ids.items():
+                db.resolve_stale_findings(
+                    ecosystem=package["ecosystem"],
+                    normalized_name=package["normalized_name"],
+                    version=package["version"],
+                    advisory_source=advisory_source,
+                    active_advisory_ids=active_ids,
+                )
 
         ghsa_ids = []
         if key in ghsa_target_packages:

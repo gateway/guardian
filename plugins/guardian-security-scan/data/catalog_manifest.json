@@ -1,0 +1,47 @@
+{
+  "files": [
+    {
+      "name": "antv-mini-shai-hulud.json",
+      "sha256": "e3e77c1c534735a76182df8ad3e1b535d87f021cae3a098bdc8ac1600a36c7ae",
+      "size": 127564
+    },
+    {
+      "name": "gemstuffer.json",
+      "sha256": "1efca6b1655edb323e2f45e4beda988bf3316a8059622613f686cdb015d24a0c",
+      "size": 45805
+    },
+    {
+      "name": "laravel-lang-2026-05-23.json",
+      "sha256": "e8e0d0188767a8eb7038b85eb2ddf137e81e7cd0a643b0e63eb0ccf72e654cc0",
+      "size": 14946
+    },
+    {
+      "name": "mini-shai-hulud.json",
+      "sha256": "98133f5933f708258bea42a05e11a5ac65d6578206c13ea25d5a5181e9b469b5",
+      "size": 79123
+    },
+    {
+      "name": "node-ipc-credential-stealer.json",
+      "sha256": "9518bef8d523a07571eeb1828a9faa1e051a9ca69fb4d166a45a7a459f584dc7",
+      "size": 2211
+    },
+    {
+      "name": "nx-console-vscode-2026-05-18.json",
+      "sha256": "91c41c94f760943fe0ba3d3e3fd0a6033b38f019beac65d6085d03ce6a09b4d3",
+      "size": 6683
+    },
+    {
+      "name": "shopsprint-decimal-typosquat.json",
+      "sha256": "a6687bbcc2ab52e5468ee5d58605d43f6c1e5f25716f115d713da6916426725d",
+      "size": 1411
+    },
+    {
+      "name": "trapdoor-crypto-stealer.json",
+      "sha256": "f2b93dd77c72f0e12b8c4dd063b8d1926b2251c0d052433f501c7ef55500a79c",
+      "size": 18519
+    }
+  ],
+  "plugin_version": "1.3.0",
+  "remote_base_url": "https://raw.githubusercontent.com/gateway/guardian/main/plugins/guardian-security-scan/data/local_catalogs",
+  "schema_version": "1.0"
+}

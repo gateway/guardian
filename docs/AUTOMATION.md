@@ -26,7 +26,7 @@ Guardian keeps runtime state outside the plugin by default:
 ~/.guardian-security-scan/guardian.db
 ```
 
-The SQLite database stores package inventory rows, dependency-file fingerprints, advisory records, findings, triage snapshots, policy exceptions, and remediation lifecycle data.
+The SQLite database stores package inventory rows, dependency-file fingerprints, advisory records, findings, triage snapshots, policy exceptions, remediation lifecycle data, registry observations, and pre-install verdicts.
 
 Set `GUARDIAN_STATE_DIR` when you want isolated state for a workflow:
 
@@ -50,9 +50,23 @@ Add live enrichment only when you need slower CVE context such as KEV, EPSS, or 
 guardian daily-watch --root /path/to/repo --refresh-advisories --live-enrichment --json
 ```
 
+Add changed-package registry intelligence without enabling broader live enrichment:
+
+```bash
+guardian daily-watch --root /path/to/repo --include-registry-intel --json
+```
+
+OpenSSF malicious-package ingest is intentionally heavier because its first sparse git checkout can carry substantial tree metadata. Enable it only for a deliberate deep refresh:
+
+```bash
+guardian daily-watch --root /path/to/repo --include-threat-intel --include-openssf-malicious --json
+```
+
 ## Efficiency Notes
 
 - Unchanged dependency files can be skipped before full inventory.
+- Unchanged roots make zero registry-intelligence calls, even when the option is enabled.
+- Standard scans inspect registry metadata only after a version is introduced beyond an existing baseline.
 - Advisory refresh for known packages is cheaper than broad repo rescans.
 - Snapshot comparison keeps unchanged findings from being treated as new.
 - Operator JSON is compact enough for agents and dashboards.
