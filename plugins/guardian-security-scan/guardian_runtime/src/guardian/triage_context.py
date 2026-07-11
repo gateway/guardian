@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from .db import Database
-from .planner import CandidateResolver, fixed_versions_from_osv
+from .planner import CandidateResolver, fixed_versions_from_osv, highest_fixed_boundary
 from .project_model import BUILD_TOOL_PACKAGES, ProjectInspector
 from .root_cause import npm_explain_summary
 from .triage_rules import (
@@ -205,14 +205,7 @@ def _package_context(
         current_assessment = resolver.assess_version(ecosystem, package_name, version)
     else:
         current_assessment = _db_assessment_for_package(db, ecosystem, package_name, normalized_name, version)
-    fixed_candidates = sorted(
-        {
-            fixed
-            for finding in current_assessment["findings"]
-            for fixed in (finding.get("fixed_versions") or [])
-        }
-    )
-    first_fixed_version = fixed_candidates[0] if fixed_candidates else None
+    first_fixed_version = highest_fixed_boundary(current_assessment["findings"])
     clean_target = {
         "recommended_clean_version": None,
         "latest_version": None,

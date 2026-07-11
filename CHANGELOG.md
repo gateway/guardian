@@ -2,6 +2,18 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.5.2 - 2026-07-11
+
+### Fixed
+
+- Multi-advisory remediation selects the highest required fixed boundary instead of the lowest individual advisory boundary.
+- A package affected until both a prerelease and a later stable release can no longer be pointed at the still-vulnerable prerelease.
+
+### Verified
+
+- A regression fixture proves fixed boundaries `5.0.0rc3` and `5.3.0` produce a minimum remediation target of `5.3.0`.
+- Proposed targets remain subject to Guardian's clean-target recheck before an automated upgrade recommendation.
+
 ## 1.5.1 - 2026-07-11
 
 ### Fixed

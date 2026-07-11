@@ -34,6 +34,7 @@ from guardian.upstream_context import (  # noqa: E402
 from guardian.dependency_files import fingerprint_dependency_files  # noqa: E402
 from guardian.inventory_native.engine import scan_package_records  # noqa: E402
 from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
+from guardian.planner import highest_fixed_boundary  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
 from guardian.reporting_issues import _apply_advisory_context  # noqa: E402
@@ -668,6 +669,13 @@ def assert_reporting_advisory_and_evidence_helpers() -> None:
     queued_context = package_evidence_context(queued[0])
     if not queued_context["manifest_present"] or not queued_context["lockfile_present"]:
         raise AssertionError(f"remediation queue dropped package occurrence evidence: {queued_context}")
+
+    fixed_boundary = highest_fixed_boundary([
+        {"fixed_versions": ["5.0.0rc3"]},
+        {"fixed_versions": ["5.3.0"]},
+    ])
+    if fixed_boundary != "5.3.0":
+        raise AssertionError(f"multi-advisory target did not clear every fixed boundary: {fixed_boundary}")
 
 
 def main() -> int:

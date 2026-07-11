@@ -8,7 +8,7 @@ import subprocess
 from .config import GuardianConfig
 from .db import Database
 from .http_client import GuardianHttp
-from .planner import CandidateResolver
+from .planner import CandidateResolver, highest_fixed_boundary
 from .policy import decide_package_action
 from .triage import summarize_candidate
 from .util import (
@@ -59,8 +59,7 @@ def assess_install_candidate(config: GuardianConfig, db: Database, ecosystem: st
         findings=findings,
     )
     candidate_summary = summarize_candidate(findings)
-    fixed_versions = sorted({fixed for finding in findings for fixed in (finding.get("fixed_versions") or [])})
-    first_fixed_version = fixed_versions[0] if fixed_versions else None
+    first_fixed_version = highest_fixed_boundary(findings)
     clean_target = resolver.recommended_clean_version(
         ecosystem,
         name,

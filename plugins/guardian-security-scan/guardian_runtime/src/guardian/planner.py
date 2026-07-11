@@ -30,6 +30,18 @@ def fixed_versions_from_osv(vuln: dict, ecosystem: str, package_name: str) -> li
     return sorted(set(results), key=cmp_to_key(compare_versions))
 
 
+def highest_fixed_boundary(findings: list[dict]) -> str | None:
+    """Return the minimum version high enough to clear every matched advisory."""
+
+    fixed = {
+        version
+        for finding in findings
+        for version in (finding.get("fixed_versions") or [])
+        if version
+    }
+    return max(fixed, key=cmp_to_key(compare_versions)) if fixed else None
+
+
 class CandidateResolver:
     def __init__(self, config: GuardianConfig):
         self.config = config
