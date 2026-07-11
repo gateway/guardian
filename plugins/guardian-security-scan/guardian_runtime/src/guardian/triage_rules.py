@@ -25,8 +25,7 @@ def _issue_package_normalized_name(package: dict) -> str:
 def _issue_signal_grade(issue: dict) -> str:
     """Classify advisory evidence strength without conflating it with severity."""
 
-    sources = set(issue.get("sources") or [])
-    if issue.get("malicious_package") or any(source.startswith("local-catalog:") for source in sources):
+    if issue.get("malicious_package"):
         return SignalGrade.CATALOG_MATCH.value
     return SignalGrade.ADVISORY.value
 

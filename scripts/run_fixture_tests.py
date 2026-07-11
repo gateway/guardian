@@ -36,6 +36,7 @@ from guardian.inventory_native.engine import scan_package_records  # noqa: E402
 from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
+from guardian.reporting_issues import _apply_advisory_context  # noqa: E402
 from guardian.config import GuardianConfig  # noqa: E402
 from guardian.advisories import refresh_findings  # noqa: E402
 from guardian.db import Database  # noqa: E402
@@ -44,6 +45,7 @@ from guardian.inventory import scan_roots  # noqa: E402
 from guardian.sources.kev import KEVClient  # noqa: E402
 from guardian.sources.osv import OSVClient  # noqa: E402
 from guardian.signals import SignalGrade, grade_to_posture  # noqa: E402
+from guardian.triage_rules import _issue_signal_grade  # noqa: E402
 
 
 def run_guardian(
@@ -255,6 +257,24 @@ def assert_signal_grades() -> None:
     actual = {grade: grade_to_posture(grade) for grade in SignalGrade}
     if actual != expected:
         raise AssertionError(f"signal-grade posture mapping drifted: {actual}")
+
+    generated_advisory_issue = {"malicious_package": False}
+    _apply_advisory_context(
+        generated_advisory_issue,
+        {
+            "source": "local-catalog",
+            "raw_json": json.dumps(
+                {
+                    "id": "gitlab-advisory-db:GMS-2099-1",
+                    "source_type": "official-advisory-db",
+                }
+            ),
+        },
+    )
+    if generated_advisory_issue["malicious_package"]:
+        raise AssertionError("generated advisory catalogs must not be labeled as malicious campaigns")
+    if _issue_signal_grade(generated_advisory_issue) != SignalGrade.ADVISORY.value:
+        raise AssertionError("generated advisory catalogs must retain advisory-grade evidence")
 
 
 def assert_http_client_hardening(tmp: Path) -> None:

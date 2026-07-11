@@ -30,7 +30,7 @@ def _apply_advisory_context(issue: dict, advisory: dict | None) -> None:
         return
     raw = _advisory_raw(advisory)
     source = advisory.get("source")
-    if source == "local-catalog":
+    if source == "local-catalog" and raw.get("source_type") != "official-advisory-db":
         issue["malicious_package"] = True
     if source == "kev":
         issue["known_exploited"] = True
