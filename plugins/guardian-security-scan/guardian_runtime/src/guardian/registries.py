@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from functools import cmp_to_key
-from urllib.request import Request, urlopen
 
 from .config import GuardianConfig
+from .http_client import GuardianHttp
 from .util import quote_package_path
 from .versions import compare_versions
 
@@ -14,14 +14,13 @@ from .versions import compare_versions
 class LatestVersionResolver:
     def __init__(self, config: GuardianConfig):
         self.config = config
+        self.http = GuardianHttp(config)
         self._cache: dict[tuple[str, str], str | None] = {}
         self._versions_cache: dict[tuple[str, str], list[str]] = {}
 
     def _fetch_json(self, url: str) -> dict | None:
-        request = Request(url, headers={"User-Agent": self.config.user_agent})
         try:
-            with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
-                return json.loads(response.read().decode("utf-8"))
+            return self.http.get(url).json()
         except Exception:
             return None
 

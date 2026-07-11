@@ -14,6 +14,7 @@ from .triage_rules import (
     _exploit_likelihood,
     _issue_labels,
     _issue_package_normalized_name,
+    _issue_signal_grade,
     _package_key,
     _risk_bucket,
 )
@@ -115,6 +116,7 @@ def enrich_issue(
         "classification_labels": labels,
         "exploit_likelihood": exploit_likelihood,
         "signals": signals,
+        "signal_grade": _issue_signal_grade(issue),
         "direct_dependency": direct_dependency,
         "usage_hit_count": usage_count,
         "packages": package_contexts,

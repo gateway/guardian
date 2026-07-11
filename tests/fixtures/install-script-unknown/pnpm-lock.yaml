@@ -1,0 +1,6 @@
+lockfileVersion: '9.0'
+
+packages:
+
+  fixture-package@1.0.0:
+    resolution: {integrity: sha512-fixture}

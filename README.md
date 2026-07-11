@@ -10,6 +10,7 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 
 - Inventories npm and Python dependency evidence from manifests, lockfiles, and optional installed metadata.
 - Matches exact package versions against vulnerability, exploit-intelligence, and malicious-package sources.
+- Detects when a dependency newly gains install-time behavior, including npm lifecycle scripts and selected Python source-install evidence.
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.
 - Tracks scans over time so you can see new, resolved, changed, and unchanged findings.
 - Produces compact operator JSON and optional Markdown handoff reports for agents, maintainers, and reviewers.
@@ -252,6 +253,7 @@ Guardian is designed to be lightweight for local agent workflows and scheduled s
 - The scanner runtime uses the Python standard library only.
 - Normal reports are compact so agents read summaries instead of raw lockfiles.
 - Daily watch skips unchanged dependency inventories.
+- Live-source requests share bounded retry, pacing, and conditional disk caching so large feeds are not downloaded again while fresh.
 - Live advisory refresh and installed-tree corroboration are explicit options.
 - Repo Scout uses bounded, paced scans for large public repos.
 - Snapshot comparison prevents repeated scans from re-explaining unchanged findings.

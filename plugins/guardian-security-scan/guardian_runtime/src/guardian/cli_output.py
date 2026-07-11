@@ -9,6 +9,11 @@ def print_project_scan_summary(payload: dict) -> None:
     print(f"root: {payload['root_path']}")
     print(f"elapsed: {payload['elapsed_seconds']}s")
     print(f"packages checked: {payload['refresh']['packages_checked']}")
+    for item in payload.get("behavioral_signals", []):
+        print(
+            f"behavioral {item['posture'].replace('_', ' ')}: "
+            f"{item['package_name']}@{item['version']} ({item['signal_type']})"
+        )
     scan_policy = payload.get("scan_policy") or {}
     if scan_policy.get("large_repo_mode"):
         print(f"large-repo mode: {scan_policy.get('large_repo_reason')}")

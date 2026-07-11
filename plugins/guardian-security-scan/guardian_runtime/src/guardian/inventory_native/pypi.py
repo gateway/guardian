@@ -69,6 +69,8 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
             return
         normalized = _normalize_python_name(name)
         direct = normalized in direct_names if direct_names else None
+        sdist_url = current.get("sdist_url")
+        sdist_only = bool(sdist_url and current.get("has_wheel") != "true")
         records.append(
             package_record(
                 root=root,
@@ -82,7 +84,13 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
                 direct_dependency=direct,
                 install_scope="prod" if direct else None,
                 evidence_kind="lockfile",
-                raw_metadata={"direct_dependency_names_available": bool(direct_names)},
+                raw_metadata={
+                    "direct_dependency_names_available": bool(direct_names),
+                    "has_install_script": sdist_only,
+                    "install_script_kinds": ["sdist-install"] if sdist_only else [],
+                    "install_script_evidence_source": "sdist-heuristic",
+                    "sdist_url": sdist_url,
+                },
             )
         )
 
@@ -103,6 +111,14 @@ def parse_uv_lock(path: Path, root: Path) -> list[dict]:
             value = _quoted_value(stripped)
             if value:
                 current["version"] = value
+            continue
+        if stripped.startswith("sdist ="):
+            url_match = re.search(r'url\s*=\s*"([^"]+)"', stripped)
+            if url_match:
+                current["sdist_url"] = url_match.group(1)
+            continue
+        if stripped.startswith("wheels = ["):
+            current["has_wheel"] = "true"
     flush()
     return records
 
@@ -172,6 +188,8 @@ def parse_python_metadata(path: Path, root: Path) -> list[dict]:
     source_type = "pypi-dist-info" if path.parent.name.endswith(".dist-info") else "pypi-egg-info"
     installer = _read_sibling(path, "INSTALLER")
     direct_url = _read_json_sibling(path, "direct_url.json")
+    direct_source_url = (direct_url or {}).get("url") if isinstance(direct_url, dict) else None
+    sdist_install = _looks_like_sdist_url(direct_source_url)
     isolated = any(part in {".venv", "venv", "site-packages", "dist-packages"} for part in path.parts)
     vendored = _is_vendored_python_metadata(path)
     return [
@@ -189,7 +207,14 @@ def parse_python_metadata(path: Path, root: Path) -> list[dict]:
             evidence_kind="vendored-metadata" if vendored else "installed",
             vendored_metadata=vendored,
             isolated_environment=isolated,
-            raw_metadata={"installer": installer, "direct_url": direct_url, "vendored_metadata": vendored},
+            raw_metadata={
+                "installer": installer,
+                "direct_url": direct_url,
+                "vendored_metadata": vendored,
+                "has_install_script": True if sdist_install else None,
+                "install_script_kinds": ["sdist-install"] if sdist_install else [],
+                "install_script_evidence_source": "sdist-heuristic",
+            },
         )
     ]
 
@@ -232,6 +257,13 @@ def _is_vendored_python_metadata(path: Path) -> bool:
         rel = parts[index + 1 :]
         return "_vendor" in rel or "vendor" in rel or len(rel) > 2
     return False
+
+
+def _looks_like_sdist_url(url: str | None) -> bool:
+    """Recognize source archives that can execute Python build hooks."""
+
+    lowered = (url or "").lower().split("#", 1)[0].split("?", 1)[0]
+    return lowered.endswith((".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"))
 
 
 def _requirements_scope(path: Path) -> str:

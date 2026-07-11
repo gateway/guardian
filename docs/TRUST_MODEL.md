@@ -43,6 +43,8 @@ Guardian uses SQLite for local state. The default path is:
 
 The database stores inventory runs, current package state, advisory records, findings, triage snapshots, policy exceptions, and remediation lifecycle data. This state is created on the user's machine at runtime and is not included in the plugin repository.
 
+Guardian also stores install-script observations by project, ecosystem, package, version, and evidence source. This history lets it distinguish a package that has always required install-time behavior from a dependency update that newly introduced it.
+
 The database is what lets Guardian answer operational questions across runs:
 
 - Was this finding new today?
@@ -71,6 +73,31 @@ Local:
 - Previous scan snapshots and local remediation state in SQLite.
 
 This means a daily automation does not only test against a static database. It re-inventories the repo, refreshes configured live sources where enabled, checks local catalogs, then compares the new result to the prior SQLite snapshot.
+
+## Behavioral Install Signals
+
+Guardian treats install-time behavior as a separate evidence class from published advisories. A behavioral signal is not proof that a package is malicious.
+
+| Evidence | What Guardian can establish | Confidence boundary |
+| --- | --- | --- |
+| npm `package-lock.json` v2/v3 | Whether npm recorded `hasInstallScript` for a package version | Script body and exact lifecycle kind are not stored in the lockfile |
+| Installed `node_modules/*/package.json` | Lifecycle script names and a stable hash of their bodies | Only available with the opt-in installed-tree scan |
+| `pnpm-lock.yaml` | Package/version evidence | Install-script presence remains `unknown`; Guardian does not guess |
+| `yarn.lock` | Package/version evidence | Install-script presence remains `unknown`; Guardian does not guess |
+| `uv.lock` | Source-only distributions when no wheel is recorded | A source build can execute build hooks, but is not automatically malicious |
+| pip direct URL/VCS requirement | The project explicitly installs outside a normal resolved registry pin | Guardian does not claim a published version when the reference does not expose one |
+
+New dependencies with install-time behavior default to `watch`. A dependency that changes from no install script to an install script, or whose installed script body changes without a version change, defaults to `fix this week`. Corroborating malicious-package intelligence may raise the final posture separately.
+
+Install-script signals follow snapshot discipline: Guardian emits the change once, stores the new observation, and does not repeat the alert while the evidence remains unchanged.
+
+## HTTP Reliability And Cache
+
+All runtime advisory and registry HTTP requests use Guardian's shared standard-library client. It applies per-host pacing, bounded exponential-backoff retries for rate limits and transient server failures, honors `Retry-After`, and uses a consistent user agent.
+
+GET responses are cached under the local Guardian source cache. Fresh responses are served without a network request. Stale responses are conditionally revalidated with `ETag` or `Last-Modified`; a `304 Not Modified` response reuses the saved body. Operator source status includes cache hits, revalidations, and downloaded byte counts.
+
+POST queries such as OSV package batches are not cached because the response depends on the request body. If a required source remains unavailable after retries, Guardian records a source error and completes with degraded coverage. It does not resolve previously known findings merely because a source failed.
 
 ## GitHub Token Behavior
 
@@ -106,3 +133,5 @@ Good remediation decisions should consider:
 - Advisory severity may vary between sources.
 - Exact-match malicious catalogs only catch packages and versions that are present in those catalogs.
 - Large repositories may require bounded or deep scan modes depending on time limits.
+- Lockfile flags show that install-time behavior exists; only installed metadata can expose script bodies for hashing.
+- A newly added install script is a review signal, not evidence by itself that compromise occurred.

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .db_dependency_files import DependencyFileStoreMixin
 from .db_findings import FindingStoreMixin
+from .db_install_scripts import InstallScriptStoreMixin
 from .db_inventory import InventoryStoreMixin
 from .db_policy import PolicyStoreMixin
 from .db_schema import SCHEMA
@@ -17,6 +18,7 @@ class Database(
     DependencyFileStoreMixin,
     InventoryStoreMixin,
     FindingStoreMixin,
+    InstallScriptStoreMixin,
     SnapshotStoreMixin,
     PolicyStoreMixin,
 ):

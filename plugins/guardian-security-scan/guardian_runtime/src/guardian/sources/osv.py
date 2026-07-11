@@ -6,9 +6,9 @@ import json
 import time
 from typing import Iterable, List
 from urllib.parse import quote
-from urllib.request import Request, urlopen
 
 from ..config import GuardianConfig
+from ..http_client import GuardianHttp
 from ..util import chunked, normalize_ecosystem_for_osv
 
 
@@ -17,6 +17,7 @@ class OSVClient:
 
     def __init__(self, config: GuardianConfig):
         self.config = config
+        self.http = GuardianHttp(config)
         self._vuln_cache: dict[str, dict] = {}
 
     def query_batch(self, packages: list[dict]) -> list[dict]:
@@ -35,17 +36,13 @@ class OSVClient:
                 for package in batch
             ]
             payload = json.dumps({"queries": queries}).encode("utf-8")
-            request = Request(
+            data = self.http.post(
                 self.config.osv_api_url,
                 data=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "User-Agent": self.config.user_agent,
                 },
-                method="POST",
-            )
-            with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            ).json()
             results.extend(data.get("results", []))
         return results
 
@@ -54,12 +51,6 @@ class OSVClient:
         if cached is not None:
             return cached
         url = f"{self.config.osv_vuln_api_url}/{quote(advisory_id, safe='')}"
-        request = Request(
-            url,
-            headers={"User-Agent": self.config.user_agent},
-            method="GET",
-        )
-        with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+        payload = self.http.get(url).json()
         self._vuln_cache[advisory_id] = payload
         return payload

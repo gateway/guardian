@@ -30,6 +30,7 @@ def live_source_contract(
     matches: int | None = None,
     error: str | None = None,
     skipped_reason: str | None = None,
+    http_stats: dict | None = None,
 ) -> dict:
     errors = []
     if error:
@@ -50,4 +51,8 @@ def live_source_contract(
         "errors": errors,
         "stale": None,
         "parser": None,
+        "from_cache": bool((http_stats or {}).get("from_cache")),
+        "cache_hits": int((http_stats or {}).get("cache_hits") or 0),
+        "revalidations": int((http_stats or {}).get("revalidations") or 0),
+        "bytes_downloaded": int((http_stats or {}).get("bytes_downloaded") or 0),
     }

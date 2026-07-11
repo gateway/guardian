@@ -30,7 +30,9 @@ def build_operator_view(
     db: Database,
     *,
     root_filter: str,
+    behavioral_signals: list[dict] | None = None,
 ) -> dict:
+    behavioral_signals = behavioral_signals or []
     full_triage = triage_report(config, db, root_filter=root_filter, package_limit=None)
     triage = triage_report(config, db, root_filter=root_filter)
     comparison = compare_triage_snapshots(db, root_filter=root_filter)
@@ -71,6 +73,7 @@ def build_operator_view(
                 "package_name": package["package_name"],
                 "version": package["version"],
                 "risk_label": package["risk_label"],
+                "signal_grades": package.get("signal_grades", ["advisory"]),
                 "confidence": (package.get("confidence") or {}).get("label"),
                 "environment_label": package.get("environment_label"),
                 "role_label": package.get("role_label"),
@@ -97,11 +100,16 @@ def build_operator_view(
         "changed_count": len(comparison.get("changed", [])),
         "unchanged_count": comparison.get("unchanged_count"),
     }
+    behavioral_fix = sum(1 for item in behavioral_signals if item.get("posture") == "fix_this_week")
+    behavioral_watch = sum(1 for item in behavioral_signals if item.get("posture") == "watch")
+    priority_headline = triage["headline"]
+    if behavioral_signals:
+        priority_headline += f"; behavioral: {behavioral_fix} fix this week, {behavioral_watch} watch"
     return {
         "root_path": root_filter,
         "generated_at": utc_now(),
         "full_headline": full_triage["headline"],
-        "priority_headline": triage["headline"],
+        "priority_headline": priority_headline,
         "compare_headline": comparison.get("headline") or comparison.get("message"),
         "compare": compare_counts,
         "perspective": {
@@ -115,6 +123,11 @@ def build_operator_view(
             "npm_audit_full": audit_payload(npm_audit_full),
         },
         "top_packages": top_packages,
+        "behavioral_signals": behavioral_signals,
+        "behavioral_signal_counts": {
+            "fix_this_week": behavioral_fix,
+            "watch": behavioral_watch,
+        },
         "vendored_groups": grouped_vendored,
         "bottom_line": operator_recommendations(triage["package_actions"]),
     }

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 from ..config import GuardianConfig
+from ..http_client import GuardianHttp
 
 
 class EPSSClient:
@@ -14,6 +14,7 @@ class EPSSClient:
 
     def __init__(self, config: GuardianConfig):
         self.config = config
+        self.http = GuardianHttp(config)
         self._cache: dict[str, dict | None] = {}
 
     def query_by_cve_id(self, cve_id: str) -> dict | None:
@@ -21,13 +22,7 @@ class EPSSClient:
             return self._cache[cve_id]
         params = urlencode({"cve": cve_id})
         url = f"{self.config.epss_api_url}?{params}"
-        request = Request(
-            url,
-            headers={"User-Agent": self.config.user_agent},
-            method="GET",
-        )
-        with urlopen(request, timeout=self.config.request_timeout_seconds) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        data = self.http.get(url).json()
         rows = data.get("data", [])
         payload = rows[0] if rows else None
         self._cache[cve_id] = payload

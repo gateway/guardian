@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from .intel import severity_rank
 from .triage_rules import _bucket_sort_key, _confidence_label, _package_bucket_override, _risk_bucket
-from .triage_signals import advisory_link_sort_key, keyword_signals
+from .triage_signals import advisory_link_sort_key, keyword_signals, signal_grade_sort_key
 
 
 """Aggregate enriched issues into package queues and install-gate summaries."""
@@ -80,6 +80,7 @@ def package_remediation_queue(enriched: list[dict]) -> list[dict]:
                     "exploit_likelihood": issue.get("exploit_likelihood"),
                     "epss": issue.get("epss"),
                     "signals": set(issue.get("signals", [])),
+                    "signal_grades": {issue.get("signal_grade", "advisory")},
                     "issue_keys": set(),
                     "issue_summaries": [],
                     "advisory_sources": set(),
@@ -113,6 +114,7 @@ def package_remediation_queue(enriched: list[dict]) -> list[dict]:
             ):
                 current["epss"] = issue.get("epss")
             current["signals"].update(issue.get("signals", []))
+            current["signal_grades"].add(issue.get("signal_grade", "advisory"))
             current["issue_keys"].add(issue["canonical_key"])
             current["advisory_sources"].update(issue.get("sources", []))
             current["advisory_links"].update(issue.get("urls", []))
@@ -178,6 +180,7 @@ def package_remediation_queue(enriched: list[dict]) -> list[dict]:
         item["confidence"] = _confidence_label(item)
         item["classification_labels"] = sorted(item["classification_labels"])
         item["signals"] = sorted(item["signals"])
+        item["signal_grades"] = sorted(item["signal_grades"], key=signal_grade_sort_key)
         item["issue_keys"] = sorted(item["issue_keys"])
         item["issue_summaries"] = item["issue_summaries"][:3]
         item["advisory_sources"] = sorted(item["advisory_sources"])
@@ -219,4 +222,3 @@ def summarize_candidate(findings: list[dict]) -> dict:
         "risk_label": bucket["label"],
         "signals": signals,
     }
-

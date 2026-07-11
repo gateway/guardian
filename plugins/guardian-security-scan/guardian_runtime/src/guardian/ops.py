@@ -12,6 +12,7 @@ from .config import GuardianConfig
 from .db import Database
 from .dependency_files import fingerprint_dependency_files
 from .intel import severity_rank
+from .install_scripts import detect_install_script_changes
 from .inventory import DEFAULT_ECOSYSTEMS, scan_roots
 from .reporting import (
     build_operator_view,
@@ -129,6 +130,7 @@ def run_project_scan(
 
     inventory_runs = []
     threat_intel = None
+    behavioral_signals: list[dict] = []
     refresh = {}
     triage = None
     snapshot = None
@@ -171,6 +173,10 @@ def run_project_scan(
         ),
         )
         scan_scope = _scan_scope(db, root, include_installed=include_installed)
+        behavioral_signals = run_phase(
+            "install-script-signals",
+            lambda: detect_install_script_changes(db, root),
+        )
         large_reasons = _large_repo_reasons(config, scan_scope)
         if large_reasons:
             scan_policy["large_repo_mode"] = True
@@ -205,7 +211,15 @@ def run_project_scan(
             ),
         )
         if not compact:
-            operator_view = run_phase("operator-view", lambda: build_operator_view(config, db, root_filter=root))
+            operator_view = run_phase(
+                "operator-view",
+                lambda: build_operator_view(
+                    config,
+                    db,
+                    root_filter=root,
+                    behavioral_signals=behavioral_signals,
+                ),
+            )
             operator_report_path = run_phase(
                 "operator-report",
                 lambda: str(write_operator_report(config, db, root_filter=root, payload=operator_view)),
@@ -235,12 +249,32 @@ def run_project_scan(
                 "compact-operator-view",
                 lambda: build_compact_operator_view(config, db, root_filter=root, triage=triage, comparison=comparison),
             )
+            operator_view["behavioral_signals"] = behavioral_signals
+            operator_view["behavioral_signal_counts"] = {
+                "fix_this_week": sum(1 for item in behavioral_signals if item.get("posture") == "fix_this_week"),
+                "watch": sum(1 for item in behavioral_signals if item.get("posture") == "watch"),
+            }
+            if behavioral_signals:
+                counts = operator_view["behavioral_signal_counts"]
+                operator_view["priority_headline"] += (
+                    f"; behavioral: {counts['fix_this_week']} fix this week, {counts['watch']} watch"
+                )
             operator_report_path = run_phase(
                 "compact-operator-report",
                 lambda: str(_write_project_json_report(config, root, "operator", operator_view)),
             )
         if write_handoff:
-            handoff_path = run_phase("handoff", lambda: str(write_handoff_report(config, db, root_filter=root)))
+            handoff_path = run_phase(
+                "handoff",
+                lambda: str(
+                    write_handoff_report(
+                        config,
+                        db,
+                        root_filter=root,
+                        behavioral_signals=behavioral_signals,
+                    )
+                ),
+            )
     except ScanBudgetExceeded as exc:
         status = "partial"
         budget_error = str(exc)
@@ -275,24 +309,46 @@ def run_project_scan(
         "scan_policy": scan_policy,
         "threat_intel": threat_intel,
         "refresh": refresh,
+        "behavioral_signals": behavioral_signals,
         "operator_view": operator_view,
         "source_status": {
             "osv": {
                 **live_source_contract(
                     source_id="osv",
-                    status="queried" if refresh else "not-run",
+                    status="error" if (refresh.get("source_errors") or {}).get("osv") else "queried" if refresh else "not-run",
                     records_read=refresh.get("packages_checked") if refresh else None,
+                    error=(refresh.get("source_errors") or {}).get("osv") if refresh else None,
+                    http_stats=(refresh.get("http_stats") or {}).get("osv") if refresh else None,
                 ),
             },
             "ghsa": {
                 **live_source_contract(
                     source_id="ghsa",
-                    status="queried" if refresh.get("ghsa_included") else "not-requested-or-skipped",
+                    status="error" if refresh.get("ghsa_error") else "queried" if refresh.get("ghsa_included") else "not-requested-or-skipped",
                     records_read=refresh.get("ghsa_target_count"),
                     error=refresh.get("ghsa_error"),
                     skipped_reason=refresh.get("ghsa_skipped_reason"),
+                    http_stats=(refresh.get("http_stats") or {}).get("ghsa"),
                 ),
             },
+            "kev": live_source_contract(
+                source_id="kev",
+                status="error" if (refresh.get("source_errors") or {}).get("kev") else "queried" if ((refresh.get("http_stats") or {}).get("kev") or {}).get("requests") else "not-needed",
+                error=(refresh.get("source_errors") or {}).get("kev"),
+                http_stats=(refresh.get("http_stats") or {}).get("kev"),
+            ),
+            "epss": live_source_contract(
+                source_id="epss",
+                status="error" if (refresh.get("source_errors") or {}).get("epss") else "queried" if ((refresh.get("http_stats") or {}).get("epss") or {}).get("requests") else "not-needed",
+                error=(refresh.get("source_errors") or {}).get("epss"),
+                http_stats=(refresh.get("http_stats") or {}).get("epss"),
+            ),
+            "nvd": live_source_contract(
+                source_id="nvd",
+                status="error" if (refresh.get("source_errors") or {}).get("nvd") else "queried" if ((refresh.get("http_stats") or {}).get("nvd") or {}).get("requests") else "not-needed",
+                error=(refresh.get("source_errors") or {}).get("nvd"),
+                http_stats=(refresh.get("http_stats") or {}).get("nvd"),
+            ),
             "threat_intel": [
                 threat_intel_source_contract(source)
                 for source in (threat_intel or {}).get("source_reports", [])
@@ -515,6 +571,10 @@ def run_daily(
         excludes=[],
         engine=engine,
     )
+    behavioral_signals_by_root = {
+        root: detect_install_script_changes(db, root)
+        for root in roots
+    }
     threat_intel = None
     if include_threat_intel:
         ensure_default_threat_intel_sources(config)
@@ -534,8 +594,21 @@ def run_daily(
     )
     report = summary(db)
     triage = triage_report(config, db, root_filter=root_filter)
-    operator_view = build_operator_view(config, db, root_filter=root_filter) if root_filter else None
-    operator_report_path = str(write_operator_report(config, db, root_filter=root_filter)) if root_filter else None
+    operator_view = (
+        build_operator_view(
+            config,
+            db,
+            root_filter=root_filter,
+            behavioral_signals=behavioral_signals_by_root.get(root_filter, []),
+        )
+        if root_filter
+        else None
+    )
+    operator_report_path = (
+        str(write_operator_report(config, db, root_filter=root_filter, payload=operator_view))
+        if root_filter
+        else None
+    )
     snapshots = []
     comparisons = []
     remediation_updates = []
@@ -576,6 +649,7 @@ def run_daily(
         "summary": report,
         "triage": triage,
         "operator_view": operator_view,
+        "behavioral_signals_by_root": behavioral_signals_by_root,
         "operator_report_path": operator_report_path,
         "snapshots": snapshots,
         "comparisons": comparisons,
@@ -638,10 +712,12 @@ def run_daily_watch(
                 "reason": reason,
                 "package_count_before": package_count,
                 "file_state": file_state,
+                "behavioral_signals": [],
             }
         )
 
     inventory_runs = []
+    behavioral_signals_by_root: dict[str, list[dict]] = {}
     if roots_to_inventory:
         inventory_runs = scan_roots(
             config=config,
@@ -652,6 +728,12 @@ def run_daily_watch(
             excludes=[],
             engine=engine,
         )
+        behavioral_signals_by_root = {
+            root: detect_install_script_changes(db, root)
+            for root in roots_to_inventory
+        }
+        for root_status in root_statuses:
+            root_status["behavioral_signals"] = behavioral_signals_by_root.get(root_status["root_path"], [])
 
     threat_intel = None
     if include_threat_intel:
@@ -738,6 +820,7 @@ def run_daily_watch(
         "roots_inventory_count": len(roots_to_inventory),
         "roots_skipped_count": len(normalized_roots) - len(roots_to_inventory),
         "inventory_runs": inventory_runs,
+        "behavioral_signals_by_root": behavioral_signals_by_root,
         "threat_intel": threat_intel,
         "refresh": refresh,
         "refresh_advisories": refresh_advisories,

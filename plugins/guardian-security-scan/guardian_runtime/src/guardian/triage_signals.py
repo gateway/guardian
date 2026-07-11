@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from .signals import SIGNAL_GRADE_ORDER, SignalGrade
 from .usage import find_package_usage
 
 
@@ -93,6 +94,15 @@ def advisory_link_sort_key(link: str) -> tuple[int, str]:
     if "github.com" in link:
         return (0, link)
     return (2, link)
+
+
+def signal_grade_sort_key(grade: str) -> int:
+    """Keep stronger evidence grades first in compact operator output."""
+
+    try:
+        return SIGNAL_GRADE_ORDER[SignalGrade(grade)]
+    except (ValueError, KeyError):
+        return 99
 
 
 def keyword_signals(text: str) -> list[str]:

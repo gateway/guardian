@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .config import GuardianConfig
 from .project_model import BUILD_TOOL_PACKAGES
+from .signals import SignalGrade
 from .triage_signals import CORE_RUNTIME_PACKAGES
 from .versions import classify_upgrade_jump
 
@@ -19,6 +20,15 @@ def _issue_package_normalized_name(package: dict) -> str:
     if package["ecosystem"] == "pypi":
         return package["package_name"].lower().replace("_", "-")
     return package["package_name"].lower()
+
+
+def _issue_signal_grade(issue: dict) -> str:
+    """Classify advisory evidence strength without conflating it with severity."""
+
+    sources = set(issue.get("sources") or [])
+    if issue.get("malicious_package") or any(source.startswith("local-catalog:") for source in sources):
+        return SignalGrade.CATALOG_MATCH.value
+    return SignalGrade.ADVISORY.value
 
 
 def _direct_dependency_flag(occurrences: list[dict]) -> bool:
@@ -375,4 +385,3 @@ def _environment_label(
     if "npm-lockfile" in source_types and "npm-node_modules" not in source_types:
         return "lockfile-only"
     return "transitive-installed"
-

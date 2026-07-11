@@ -85,6 +85,24 @@ CREATE TABLE IF NOT EXISTS dependency_file_state (
 CREATE INDEX IF NOT EXISTS idx_dependency_file_state_root_present
 ON dependency_file_state(root_path, present);
 
+CREATE TABLE IF NOT EXISTS install_script_state (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  root_path TEXT NOT NULL,
+  ecosystem TEXT NOT NULL,
+  normalized_name TEXT NOT NULL,
+  version TEXT NOT NULL,
+  has_install_script INTEGER,
+  script_kinds_json TEXT,
+  scripts_sha256 TEXT,
+  evidence_source TEXT NOT NULL,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  UNIQUE(root_path, ecosystem, normalized_name, version, evidence_source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_install_script_state_package
+ON install_script_state(root_path, ecosystem, normalized_name, last_seen_at DESC);
+
 CREATE TABLE IF NOT EXISTS advisories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,

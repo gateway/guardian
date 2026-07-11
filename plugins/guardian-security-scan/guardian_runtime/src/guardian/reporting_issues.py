@@ -30,6 +30,8 @@ def _apply_advisory_context(issue: dict, advisory: dict | None) -> None:
         return
     raw = _advisory_raw(advisory)
     source = advisory.get("source")
+    if source == "local-catalog":
+        issue["malicious_package"] = True
     if source == "kev":
         issue["known_exploited"] = True
         if str(raw.get("knownRansomwareCampaignUse", "")).lower() == "known":
@@ -147,4 +149,3 @@ def grouped_issues(db: Database) -> list[dict]:
         results.append(issue)
     results.sort(key=lambda item: (-severity_rank(item["severity"]), item["canonical_key"]))
     return results
-

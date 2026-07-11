@@ -52,7 +52,12 @@ def refresh_findings(
     nvd = NVDClient(config)
     local_catalog = LocalCatalogMatcher(config)
 
-    osv_results = osv.query_batch(packages) if packages else []
+    source_errors: dict[str, str] = {}
+    try:
+        osv_results = osv.query_batch(packages) if packages else []
+    except Exception as exc:
+        source_errors["osv"] = str(exc)
+        osv_results = [{} for _package in packages]
     osv_by_package = {}
     for package, result in zip(packages, osv_results):
         key = (package["ecosystem"], package["normalized_name"], package["version"])
@@ -94,7 +99,16 @@ def refresh_findings(
         matched_osv_ids = []
         for vuln_stub in osv_by_package.get(key, []):
             advisory_id = vuln_stub["id"]
-            vuln = osv.get_vulnerability(advisory_id)
+            try:
+                vuln = osv.get_vulnerability(advisory_id)
+            except Exception as exc:
+                source_errors.setdefault("osv", str(exc))
+                vuln = {
+                    "id": advisory_id,
+                    "aliases": vuln_stub.get("aliases") or [],
+                    "summary": vuln_stub.get("summary"),
+                    "affected": vuln_stub.get("affected") or [],
+                }
             if osv_explicit_versions_exclude_package(vuln, package):
                 continue
             matched_osv_ids.append(advisory_id)
@@ -129,6 +143,7 @@ def refresh_findings(
                     try:
                         nvd_enrichment = nvd.query_by_cve_id(cve_id)
                     except Exception:
+                        source_errors.setdefault("nvd", "NVD enrichment request failed")
                         nvd_enrichment = None
                     if nvd_enrichment is not None:
                         break
@@ -171,7 +186,11 @@ def refresh_findings(
                 raw_json=merged_raw,
             )
             for cve_id in (cve_aliases if enrich_live else []):
-                kev_entry = kev.query_by_cve_id(cve_id)
+                try:
+                    kev_entry = kev.query_by_cve_id(cve_id)
+                except Exception as exc:
+                    source_errors.setdefault("kev", str(exc))
+                    kev_entry = None
                 if kev_entry is not None:
                     db.upsert_advisory(
                         source="kev",
@@ -185,7 +204,11 @@ def refresh_findings(
                         withdrawn_at=None,
                         raw_json=kev_entry,
                     )
-                epss_entry = epss.query_by_cve_id(cve_id)
+                try:
+                    epss_entry = epss.query_by_cve_id(cve_id)
+                except Exception as exc:
+                    source_errors.setdefault("epss", str(exc))
+                    epss_entry = None
                 if epss_entry is not None:
                     db.upsert_advisory(
                         source="epss",
@@ -214,13 +237,14 @@ def refresh_findings(
                 evidence="OSV exact version match",
             )
             total_findings += 1
-        db.resolve_stale_findings(
-            ecosystem=package["ecosystem"],
-            normalized_name=package["normalized_name"],
-            version=package["version"],
-            advisory_source="osv",
-            active_advisory_ids=matched_osv_ids,
-        )
+        if "osv" not in source_errors:
+            db.resolve_stale_findings(
+                ecosystem=package["ecosystem"],
+                normalized_name=package["normalized_name"],
+                version=package["version"],
+                advisory_source="osv",
+                active_advisory_ids=matched_osv_ids,
+            )
 
         ghsa_ids = []
         if key in ghsa_target_packages:
@@ -253,13 +277,14 @@ def refresh_findings(
                     evidence="GHSA exact version match",
                 )
                 total_findings += 1
-            db.resolve_stale_findings(
-                ecosystem=package["ecosystem"],
-                normalized_name=package["normalized_name"],
-                version=package["version"],
-                advisory_source="ghsa",
-                active_advisory_ids=ghsa_ids,
-            )
+            if ghsa_error is None:
+                db.resolve_stale_findings(
+                    ecosystem=package["ecosystem"],
+                    normalized_name=package["normalized_name"],
+                    version=package["version"],
+                    advisory_source="ghsa",
+                    active_advisory_ids=ghsa_ids,
+                )
 
         # Local catalogs are exact-match malicious/campaign intelligence. They do
         # not need live network access and are useful for supply-chain incidents
@@ -320,10 +345,20 @@ def refresh_findings(
         "ghsa_error": ghsa_error,
         "ghsa_skipped_reason": ghsa_skipped_reason,
         "live_enrichment": enrich_live,
+        "source_errors": source_errors,
+        "http_stats": {
+            "osv": osv.http.stats(),
+            "ghsa": ghsa.http.stats(),
+            "kev": kev.http.stats(),
+            "epss": epss.http.stats(),
+            "nvd": nvd.http.stats(),
+        },
         "api_policy": {
             "ghsa_max_workers": config.ghsa_max_workers,
             "api_request_min_interval_seconds": config.api_request_min_interval_seconds,
             "osv_batch_delay_seconds": config.osv_batch_delay_seconds,
+            "http_max_retries": config.http_max_retries,
+            "http_cache_ttl_seconds": config.http_cache_ttl_seconds,
         },
     }
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import subprocess
-from urllib.request import Request, urlopen
 
 from .config import GuardianConfig
 from .db import Database
+from .http_client import GuardianHttp
 from .planner import CandidateResolver
 from .policy import decide_package_action
 from .triage import summarize_candidate
@@ -24,9 +24,7 @@ def resolve_npm_spec(config: GuardianConfig, spec: str) -> ResolvedPackageSpec:
     name, version = parse_npm_spec(spec)
     if not version:
         url = f"https://registry.npmjs.org/{quote_package_path(name)}/latest"
-        request = Request(url, headers={"User-Agent": config.user_agent})
-        with urlopen(request, timeout=config.request_timeout_seconds) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        data = GuardianHttp(config).get(url).json()
         version = data["version"]
     return ResolvedPackageSpec(ecosystem="npm", name=name, version=version, original_spec=spec)
 
@@ -35,9 +33,7 @@ def resolve_pip_spec(config: GuardianConfig, spec: str) -> ResolvedPackageSpec:
     name, version = parse_pip_spec(spec)
     if not version:
         url = f"https://pypi.org/pypi/{quote_package_path(name)}/json"
-        request = Request(url, headers={"User-Agent": config.user_agent})
-        with urlopen(request, timeout=config.request_timeout_seconds) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        data = GuardianHttp(config).get(url).json()
         version = data["info"]["version"]
     return ResolvedPackageSpec(ecosystem="pypi", name=name, version=version, original_spec=spec)
 

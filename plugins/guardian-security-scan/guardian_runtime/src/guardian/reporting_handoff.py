@@ -31,11 +31,20 @@ def build_handoff_markdown(
     db: Database,
     *,
     root_filter: str,
+    behavioral_signals: list[dict] | None = None,
 ) -> str:
+    behavioral_signals = behavioral_signals or []
     triage = triage_report(config, db, root_filter=root_filter)
     comparison = compare_triage_snapshots(db, root_filter=root_filter)
     if not triage["package_actions"]:
-        return _build_clean_handoff_markdown(config, db, root_filter=root_filter, triage=triage, comparison=comparison)
+        return _build_clean_handoff_markdown(
+            config,
+            db,
+            root_filter=root_filter,
+            triage=triage,
+            comparison=comparison,
+            behavioral_signals=behavioral_signals,
+        )
     full_triage = triage_report(config, db, root_filter=root_filter, package_limit=None)
     triage_keys = {
         (package["ecosystem"], package["normalized_name"], package["version"])
@@ -308,6 +317,7 @@ def build_handoff_markdown(
     if vendored_groups and comparison.get("status") == "ok" and comparison.get("classification_changed"):
         lines.append("- Snapshot compare shows interpretation changed separately from raw evidence. That means Guardian may have downgraded findings without the repo necessarily changing its dependency graph.")
     lines.append("")
+    _append_behavioral_signals(lines, behavioral_signals)
     lines.append("## Agent Handoff")
     lines.append("")
     lines.append("Use this report as the starting context for evidence review and only plan remediation if the repo evidence justifies it. The agent should:")
@@ -328,6 +338,7 @@ def _build_clean_handoff_markdown(
     root_filter: str,
     triage: dict,
     comparison: dict,
+    behavioral_signals: list[dict],
 ) -> str:
     repo_label = Path(root_filter).name
     npm_audit_prod = npm_audit_summary(root_filter, omit_dev=True)
@@ -363,16 +374,51 @@ def _build_clean_handoff_markdown(
     lines.append("")
     lines.append("## Recommended Next Steps")
     lines.append("")
-    lines.append("1. No immediate package remediation needed.")
+    if any(item.get("posture") == "fix_this_week" for item in behavioral_signals):
+        lines.append("1. Review the install-time behavior change before accepting the dependency update.")
+    else:
+        lines.append("1. No immediate package remediation needed.")
     lines.append("2. Keep scheduled Guardian watchlist scans enabled so newly published advisories can be caught later.")
     lines.append("3. Re-run with live GHSA enrichment when reviewing large dependency changes or release candidates.")
     lines.append("")
     lines.append("## Bottom Line")
     lines.append("")
-    lines.append("- No direct runtime, lockfile, malicious-package, or known-exploited package risk is currently shown by Guardian for this repository.")
+    if behavioral_signals:
+        lines.append("- No published advisory match is currently shown, but the install-time behavior changes below require evidence review.")
+    else:
+        lines.append("- No direct runtime, lockfile, malicious-package, or known-exploited package risk is currently shown by Guardian for this repository.")
     lines.append("- This is not proof that the repo is safe against unknown zero-days; it means no configured source matched the scanned package versions.")
     lines.append("")
+    _append_behavioral_signals(lines, behavioral_signals)
     return "\n".join(lines) + "\n"
+
+
+def _append_behavioral_signals(lines: list[str], signals: list[dict]) -> None:
+    """Render behavioral evidence separately from published advisories."""
+
+    lines.append("## Behavioral Signals")
+    lines.append("")
+    if not signals:
+        lines.append("No new install-time behavior changes were detected in this scan.")
+        lines.append("")
+        return
+    for signal in signals:
+        lines.append(
+            f"### {signal['posture'].replace('_', ' ').title()}: "
+            f"{signal['package_name']}@{signal['version']}"
+        )
+        lines.append("")
+        lines.append(f"- Signal: `{signal['signal_type']}`")
+        lines.append(f"- Evidence grade: `{signal['signal_grade']}`")
+        lines.append(f"- Evidence source: `{signal['evidence_source']}`")
+        if signal.get("previous_version"):
+            lines.append(f"- Previous observed version: `{signal['previous_version']}`")
+        if signal.get("script_kinds"):
+            lines.append(f"- Install behavior: `{', '.join(signal['script_kinds'])}`")
+        lines.append(f"- Why it matters: {signal['explanation']}")
+        for source_file in signal.get("source_files", [])[:3]:
+            lines.append(f"- Evidence file: `{source_file}`")
+        lines.append("")
 
 
 def write_handoff_report(
@@ -380,8 +426,14 @@ def write_handoff_report(
     db: Database,
     *,
     root_filter: str,
+    behavioral_signals: list[dict] | None = None,
 ) -> Path:
-    content = build_handoff_markdown(config, db, root_filter=root_filter)
+    content = build_handoff_markdown(
+        config,
+        db,
+        root_filter=root_filter,
+        behavioral_signals=behavioral_signals,
+    )
     root_slug = slugify(Path(root_filter).name)
     path = Path(config.reports_dir) / f"handoff-{root_slug}-{utc_now().replace(':', '-')}.md"
     write_text(path, content)

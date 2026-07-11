@@ -44,6 +44,8 @@ class GuardianConfig:
         default_factory=lambda: ["npm", "pypi"]
     )
     request_timeout_seconds: int = 20
+    http_max_retries: int = 2
+    http_cache_ttl_seconds: int = 21600
     api_request_min_interval_seconds: float = 0.25
     ghsa_max_workers: int = 2
     osv_batch_delay_seconds: float = 0.1

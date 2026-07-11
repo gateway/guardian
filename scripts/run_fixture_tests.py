@@ -9,6 +9,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
@@ -33,6 +36,14 @@ from guardian.inventory_native.engine import scan_package_records  # noqa: E402
 from guardian.osv_matching import osv_explicit_versions_exclude_package  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
+from guardian.config import GuardianConfig  # noqa: E402
+from guardian.advisories import refresh_findings  # noqa: E402
+from guardian.db import Database  # noqa: E402
+from guardian.http_client import GuardianHttp  # noqa: E402
+from guardian.inventory import scan_roots  # noqa: E402
+from guardian.sources.kev import KEVClient  # noqa: E402
+from guardian.sources.osv import OSVClient  # noqa: E402
+from guardian.signals import SignalGrade, grade_to_posture  # noqa: E402
 
 
 def run_guardian(
@@ -115,6 +126,8 @@ def assert_local_catalog_fixture(tmp: Path) -> None:
     ]
     if not matched:
         raise AssertionError(f"malicious local catalog fixture did not produce expected critical match: {packages[:5]}")
+    if "catalog-match" not in (matched[0].get("signal_grades") or []):
+        raise AssertionError(f"local catalog finding did not retain its evidence grade: {matched[0]}")
 
 
 def assert_vendored_fixture(tmp: Path) -> None:
@@ -177,6 +190,230 @@ def assert_requirements_fixture(tmp: Path) -> None:
         raise AssertionError(f"requirements fingerprints missing or misclassified: {requirement_files}")
 
 
+def assert_install_script_drift(tmp: Path) -> None:
+    """A newly added install script should alert once, then remain quiet."""
+
+    root = tmp / "install-script-drift"
+    state = tmp / "state-install-script"
+    baseline = run_guardian(root, state)
+    if baseline.get("behavioral_signals"):
+        raise AssertionError(f"script-free baseline emitted behavioral signals: {baseline['behavioral_signals']}")
+
+    lockfile = root / "package-lock.json"
+    payload = json.loads(lockfile.read_text())
+    dependency = payload["packages"].pop("node_modules/fixture-package")
+    dependency["version"] = "1.1.0"
+    dependency["hasInstallScript"] = True
+    payload["packages"]["node_modules/fixture-package"] = dependency
+    payload["packages"][""]["dependencies"]["fixture-package"] = "1.1.0"
+    lockfile.write_text(json.dumps(payload, indent=2) + "\n")
+
+    changed = run_guardian(root, state, ["--handoff"], compact=False, mode="standard")
+    signals = changed.get("behavioral_signals") or []
+    expected = [item for item in signals if item.get("signal_type") == "install-script-added"]
+    if len(expected) != 1 or expected[0].get("posture") != "fix_this_week":
+        raise AssertionError(f"install-script addition was not prioritized correctly: {signals}")
+    operator = changed.get("operator_view") or {}
+    if "behavioral: 1 fix this week" not in (operator.get("priority_headline") or ""):
+        raise AssertionError(f"operator headline did not surface behavioral priority: {operator}")
+    handoff_path = changed.get("handoff_path")
+    handoff = Path(handoff_path).read_text() if handoff_path else ""
+    if "## Behavioral Signals" not in handoff or "install-script-added" not in handoff:
+        raise AssertionError(f"handoff did not render install-script evidence: {handoff_path}")
+
+    repeated = run_guardian(root, state)
+    if repeated.get("behavioral_signals"):
+        raise AssertionError(f"unchanged repeat scan re-alerted: {repeated['behavioral_signals']}")
+
+
+def assert_unknown_lockfile_script_state(tmp: Path) -> None:
+    """pnpm lockfile evidence must remain unknown rather than guessed safe."""
+
+    records, _metrics = scan_package_records(
+        tmp / "install-script-unknown",
+        ecosystems=["npm"],
+        include_installed=False,
+    )
+    if len(records) != 1:
+        raise AssertionError(f"pnpm unknown-state fixture produced unexpected records: {records}")
+    metadata = records[0].get("raw_metadata") or {}
+    if metadata.get("has_install_script", "missing") is not None:
+        raise AssertionError(f"pnpm install-script state should be unknown: {metadata}")
+
+
+def assert_signal_grades() -> None:
+    """The shared grading contract must preserve operator posture mappings."""
+
+    expected = {
+        SignalGrade.CORROBORATED_MALICIOUS: "act_now",
+        SignalGrade.CATALOG_MATCH: "act_now",
+        SignalGrade.BEHAVIORAL_HIGH: "fix_this_week",
+        SignalGrade.BEHAVIORAL_WATCH: "watch",
+        SignalGrade.ADVISORY: None,
+        SignalGrade.INFO: None,
+    }
+    actual = {grade: grade_to_posture(grade) for grade in SignalGrade}
+    if actual != expected:
+        raise AssertionError(f"signal-grade posture mapping drifted: {actual}")
+
+
+def assert_http_client_hardening(tmp: Path) -> None:
+    """Shared HTTP behavior must cache, revalidate, retry, and bound timeouts."""
+
+    class Handler(BaseHTTPRequestHandler):
+        counts = {"cached": 0, "retry": 0, "rate": 0, "timeout": 0, "osv": 0}
+
+        def do_GET(self):  # noqa: N802 - stdlib handler API
+            key = self.path.strip("/")
+            type(self).counts[key] = type(self).counts.get(key, 0) + 1
+            if key == "cached" and self.headers.get("If-None-Match") == '"fixture-v1"':
+                self.send_response(304)
+                self.end_headers()
+                return
+            if key == "retry" and type(self).counts[key] == 1:
+                self.send_response(500)
+                self.end_headers()
+                return
+            if key == "rate" and type(self).counts[key] == 1:
+                self.send_response(429)
+                self.send_header("Retry-After", "0")
+                self.end_headers()
+                return
+            if key == "timeout":
+                time.sleep(0.15)
+            body = json.dumps({"vulnerabilities": [], "path": key}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("ETag", '"fixture-v1"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except BrokenPipeError:
+                pass
+
+        def log_message(self, _format, *_args):
+            return
+
+        def do_POST(self):  # noqa: N802 - stdlib handler API
+            key = self.path.strip("/")
+            type(self).counts[key] = type(self).counts.get(key, 0) + 1
+            content_length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(content_length)
+            if key == "osv" and type(self).counts[key] == 1:
+                self.send_response(500)
+                self.end_headers()
+                return
+            if key == "osv-fail":
+                self.send_response(503)
+                self.end_headers()
+                return
+            body = json.dumps({"results": [{}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        cache_dir = tmp / "http-cache"
+        config = GuardianConfig(
+            threat_intel_cache_dir=str(cache_dir),
+            api_request_min_interval_seconds=0,
+            http_max_retries=2,
+            http_cache_ttl_seconds=3600,
+            request_timeout_seconds=1,
+            kev_catalog_url=f"{base}/cached",
+        )
+        first_kev = KEVClient(config)
+        first_kev.query_by_cve_id("CVE-2099-0001")
+        first_bytes = first_kev.http.stats()["bytes_downloaded"]
+        second_kev = KEVClient(config)
+        second_kev.query_by_cve_id("CVE-2099-0001")
+        second_stats = second_kev.http.stats()
+        if first_bytes <= 0 or second_stats["bytes_downloaded"] != 0 or not second_stats["from_cache"]:
+            raise AssertionError(f"KEV cache did not eliminate the second download: {first_bytes}, {second_stats}")
+        if Handler.counts["cached"] != 1:
+            raise AssertionError(f"fresh KEV cache unexpectedly hit the network: {Handler.counts}")
+
+        revalidate_config = GuardianConfig(
+            threat_intel_cache_dir=str(cache_dir),
+            api_request_min_interval_seconds=0,
+            http_max_retries=1,
+            http_cache_ttl_seconds=0,
+            request_timeout_seconds=1,
+        )
+        revalidated = GuardianHttp(revalidate_config).get(f"{base}/cached")
+        if not revalidated.from_cache or not revalidated.revalidated or revalidated.bytes_downloaded != 0:
+            raise AssertionError(f"conditional 304 did not serve cached bytes: {revalidated}")
+
+        client = GuardianHttp(config)
+        if client.get(f"{base}/retry", cache=False).error or Handler.counts["retry"] != 2:
+            raise AssertionError(f"500 retry did not recover: {Handler.counts}")
+        if client.get(f"{base}/rate", cache=False).error or Handler.counts["rate"] != 2:
+            raise AssertionError(f"429 Retry-After did not recover: {Handler.counts}")
+
+        osv_config = GuardianConfig(
+            threat_intel_cache_dir=str(cache_dir),
+            osv_api_url=f"{base}/osv",
+            api_request_min_interval_seconds=0,
+            http_max_retries=1,
+            request_timeout_seconds=1,
+        )
+        osv_result = OSVClient(osv_config).query_batch(
+            [{"ecosystem": "npm", "package_name": "fixture-package", "version": "1.0.0"}]
+        )
+        if osv_result != [{}] or Handler.counts["osv"] != 2:
+            raise AssertionError(f"OSV batch POST did not recover from a transient 500: {osv_result}, {Handler.counts}")
+
+        timeout_config = GuardianConfig(
+            threat_intel_cache_dir=str(cache_dir),
+            api_request_min_interval_seconds=0,
+            http_max_retries=1,
+            http_cache_ttl_seconds=0,
+            request_timeout_seconds=0.03,
+        )
+        timed_out = GuardianHttp(timeout_config).get(f"{base}/timeout", cache=False)
+        if not timed_out.error or timed_out.attempts != 2:
+            raise AssertionError(f"timeout was not bounded and retried: {timed_out}")
+
+        offline_state = tmp / "offline-source-state"
+        offline_config = GuardianConfig(
+            db_path=str(offline_state / "guardian.db"),
+            scans_dir=str(offline_state / "scans"),
+            reports_dir=str(offline_state / "reports"),
+            exports_dir=str(offline_state / "exports"),
+            threat_intel_cache_dir=str(offline_state / "cache"),
+            local_catalog_dirs=[str(PLUGIN_ROOT / "data" / "local_catalogs")],
+            osv_api_url=f"{base}/osv-fail",
+            osv_vuln_api_url=f"{base}/osv-fail",
+            api_request_min_interval_seconds=0,
+            http_max_retries=0,
+            request_timeout_seconds=0.03,
+        )
+        database = Database(offline_config.db_path)
+        database.initialize()
+        try:
+            scan_roots(offline_config, database, [str(tmp / "clean-npm")])
+            refresh = refresh_findings(
+                offline_config,
+                database,
+                root_paths=[str(tmp / "clean-npm")],
+                enrich_live=False,
+            )
+        finally:
+            database.close()
+        if "osv" not in refresh.get("source_errors", {}):
+            raise AssertionError(f"offline OSV failure was not represented in source status: {refresh}")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def assert_snapshot_resolution(tmp: Path) -> None:
     """A second scan of the same root after removing the bad package should mark it resolved."""
 
@@ -224,6 +461,8 @@ def assert_daily_watch_fingerprints(tmp: Path) -> None:
     second_root = second["roots"][0]
     if second_root["reason"] != "dependency-files-unchanged":
         raise AssertionError(f"second daily-watch reason should be dependency-files-unchanged: {second_root}")
+    if second_root.get("behavioral_signals"):
+        raise AssertionError(f"unchanged daily-watch root should not recompute behavioral alerts: {second_root}")
 
     package_json = root / "package.json"
     package_json.write_text(package_json.read_text() + "\n")
@@ -356,6 +595,8 @@ def main() -> int:
             "vendored-yarn-metadata",
             "uv-lock-pypi",
             "requirements-pypi",
+            "install-script-drift",
+            "install-script-unknown",
         ):
             shutil.copytree(FIXTURES / fixture, tmp / fixture)
         assert_clean_fixture(tmp)
@@ -363,6 +604,10 @@ def main() -> int:
         assert_vendored_fixture(tmp)
         assert_uv_lock_fixture(tmp)
         assert_requirements_fixture(tmp)
+        assert_install_script_drift(tmp)
+        assert_unknown_lockfile_script_state(tmp)
+        assert_signal_grades()
+        assert_http_client_hardening(tmp)
         assert_snapshot_resolution(tmp)
         assert_daily_watch_fingerprints(tmp)
         assert_upstream_reporting_policy_helpers(tmp)

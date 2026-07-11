@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+from guardian.integrity import sha256_json
+
 from .records import package_record
 
 NPM_LIFECYCLE_SCRIPTS = {
@@ -89,7 +91,12 @@ def parse_package_lock(path: Path, root: Path) -> list[dict]:
                     direct_dependency=direct,
                     install_scope=scope,
                     evidence_kind="lockfile",
-                    raw_metadata={"lockfile_version": payload.get("lockfileVersion")},
+                    raw_metadata={
+                        "lockfile_version": payload.get("lockfileVersion"),
+                        "has_install_script": bool(item.get("hasInstallScript")),
+                        "install_script_kinds": [],
+                        "install_script_evidence_source": "package-lock",
+                    },
                 )
             )
         return records
@@ -127,6 +134,11 @@ def _walk_v1_dependencies(
                 direct_dependency=direct,
                 install_scope=scope,
                 evidence_kind="lockfile",
+                raw_metadata={
+                    "has_install_script": bool(item.get("hasInstallScript")),
+                    "install_script_kinds": [],
+                    "install_script_evidence_source": "package-lock",
+                },
             )
         )
         nested = item.get("dependencies")
@@ -160,6 +172,7 @@ def parse_node_package_json(path: Path, root: Path) -> list[dict]:
         return []
     scripts = payload.get("scripts") if isinstance(payload.get("scripts"), dict) else {}
     lifecycle = sorted(name for name in scripts if name in NPM_LIFECYCLE_SCRIPTS)
+    lifecycle_bodies = {name: str(scripts[name]) for name in lifecycle}
     package_manager = "pnpm" if ".pnpm" in path.parts else "npm"
     source_type = "pnpm-node_modules" if package_manager == "pnpm" else "npm-node_modules"
     return [
@@ -178,6 +191,10 @@ def parse_node_package_json(path: Path, root: Path) -> list[dict]:
             raw_metadata={
                 "has_lifecycle_scripts": bool(lifecycle),
                 "lifecycle_scripts": lifecycle,
+                "has_install_script": bool(lifecycle),
+                "install_script_kinds": lifecycle,
+                "install_scripts_sha256": sha256_json(lifecycle_bodies) if lifecycle_bodies else None,
+                "install_script_evidence_source": "installed-tree",
             },
         )
     ]
@@ -311,7 +328,12 @@ def parse_pnpm_lock(path: Path, root: Path) -> list[dict]:
                 direct_dependency=direct,
                 install_scope=scope,
                 evidence_kind="lockfile",
-                raw_metadata={"requires_build": current_fields.get("requiresBuild") == "true"},
+                raw_metadata={
+                    "requires_build": current_fields.get("requiresBuild") == "true",
+                    "has_install_script": None,
+                    "install_script_kinds": [],
+                    "install_script_evidence_source": "pnpm-lock",
+                },
             )
         )
 
@@ -403,6 +425,11 @@ def parse_yarn_lock(path: Path, root: Path) -> list[dict]:
                 install_scope=scope,
                 evidence_kind="vendored-metadata" if vendored else "lockfile",
                 vendored_metadata=vendored,
+                raw_metadata={
+                    "has_install_script": None,
+                    "install_script_kinds": [],
+                    "install_script_evidence_source": "yarn-lock",
+                },
             )
         )
 
