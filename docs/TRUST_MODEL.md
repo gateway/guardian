@@ -175,6 +175,12 @@ Guardian's runtime uses the Python standard library only. This intentionally kee
 
 The plugin may inspect projects that use npm, pnpm, pip, or other package managers, but Guardian does not install third-party Python packages to run its scanner.
 
+Guardian does rely on a small set of external system tools, and reports honestly when they are missing:
+
+- `ripgrep` (`rg`): required for source-usage analysis in triage corroboration and package-diet review. When `rg` is absent, usage results are marked `unavailable` and usage-based diet classifications downgrade to Review instead of claiming a package is unused.
+- `git`: required for threat-intel advisory ingest and Repo Scout clones.
+- `gh` (optional): improves GitHub advisory rate limits and enables outreach duplicate checks; Guardian degrades to "verify manually" without it.
+
 ## Decision Boundary
 
 Guardian findings should be treated as evidence, not final judgment.

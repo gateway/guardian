@@ -122,6 +122,37 @@ def assert_package_diet(tmp: Path) -> None:
     db.close()
 
 
+def assert_diet_without_ripgrep(tmp: Path) -> None:
+    """A missing rg binary must never let zero usage hits read as proof of unuse."""
+
+    script = (
+        "import json, sys\n"
+        "from guardian.package_diet import package_diet_scan\n"
+        "print(json.dumps(package_diet_scan(sys.argv[1], limit=20, usage_limit=20)))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(tmp / "package-diet-vendor")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": str(tmp / "empty-path-bin"), "PYTHONPATH": str(PLUGIN_ROOT / "guardian_runtime" / "src")},
+    )
+    if completed.returncode != 0:
+        raise AssertionError(f"no-ripgrep diet scan failed: {completed.stderr}")
+    payload = json.loads(completed.stdout)
+    if payload["usage_scan"]["status"] != "unavailable" or "ripgrep" not in (payload["usage_scan"]["note"] or ""):
+        raise AssertionError(f"no-ripgrep scan did not report unavailable usage: {payload['usage_scan']}")
+    for item in payload["packages"]:
+        if item["classification"] not in {"Review", "Keep"}:
+            raise AssertionError(
+                f"no-ripgrep scan produced a usage-based classification: {item['name']} -> {item['classification']}"
+            )
+        if item["classification"] == "Review" and "ripgrep" not in item["reason"]:
+            raise AssertionError(f"no-ripgrep Review reason missing explanation: {item['reason']}")
+        if item["usage"].get("scan_status") != "unavailable":
+            raise AssertionError(f"no-ripgrep usage payload missing scan_status: {item['usage']}")
+
+
 def fake_tracking_gh(args: list[str]) -> tuple[int, str, str]:
     if args[1:3] == ["repo", "view"]:
         return 0, json.dumps({
@@ -402,7 +433,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="guardian-m5-") as raw_tmp:
         tmp = Path(raw_tmp)
         shutil.copytree(FIXTURES / "package-diet-vendor", tmp / "package-diet-vendor")
+        (tmp / "empty-path-bin").mkdir()
         assert_package_diet(tmp)
+        assert_diet_without_ripgrep(tmp)
         assert_outreach_safety(tmp)
     print("milestone 5 tests passed")
     return 0

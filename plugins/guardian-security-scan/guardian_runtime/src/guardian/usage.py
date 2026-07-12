@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import re
 from functools import lru_cache
 from pathlib import Path
 
 from .util import normalize_package_name
+
+
+RIPGREP_MISSING_NOTE = "usage analysis unavailable: ripgrep (rg) is not installed on PATH"
+
+
+@lru_cache(maxsize=1)
+def ripgrep_available() -> bool:
+    """Report whether the external rg binary Guardian's usage search needs exists."""
+
+    return shutil.which("rg") is not None
 
 
 SEARCH_EXCLUDES = [
@@ -53,8 +64,16 @@ def patterns_for_package(ecosystem: str, package_name: str) -> list[str]:
 @lru_cache(maxsize=4096)
 def find_package_usage(root_path: str, ecosystem: str, package_name: str, limit: int = 8) -> dict:
     root = Path(root_path)
+    if not ripgrep_available():
+        return {
+            "root_path": root_path,
+            "hit_count": 0,
+            "hits": [],
+            "scan_status": "unavailable",
+            "scan_note": RIPGREP_MISSING_NOTE,
+        }
     if not root.exists():
-        return {"root_path": root_path, "hit_count": 0, "hits": []}
+        return {"root_path": root_path, "hit_count": 0, "hits": [], "scan_status": "ok"}
     hits: list[dict] = []
     patterns = patterns_for_package(ecosystem, package_name)
     seen: set[tuple[str, int]] = set()
@@ -92,13 +111,13 @@ def find_package_usage(root_path: str, ecosystem: str, package_name: str, limit:
                 "snippet": snippet.strip(),
             })
             if len(hits) >= limit:
-                return {"root_path": root_path, "hit_count": len(hits), "hits": hits}
-    return {"root_path": root_path, "hit_count": len(hits), "hits": hits}
+                return {"root_path": root_path, "hit_count": len(hits), "hits": hits, "scan_status": "ok"}
+    return {"root_path": root_path, "hit_count": len(hits), "hits": hits, "scan_status": "ok"}
 
 
 def build_npm_usage_index(root_path: str, *, limit_per_package: int = 80) -> dict[str, dict]:
     root = Path(root_path)
-    if not root.exists():
+    if not ripgrep_available() or not root.exists():
         return {}
     cmd = [
         "rg",

@@ -19,6 +19,7 @@ from .package_diet_rules import (
     dynamic_reference_assessment,
     priority_rank,
     summary,
+    usage_unavailable_assessment,
 )
 from .package_diet_usage import (
     SKIP_DIRS,
@@ -27,7 +28,7 @@ from .package_diet_usage import (
     usage_density,
     wrapper_fanout,
 )
-from .usage import build_npm_usage_index
+from .usage import RIPGREP_MISSING_NOTE, build_npm_usage_index, ripgrep_available
 from .util import normalize_package_name, utc_now
 
 
@@ -46,6 +47,7 @@ def package_diet_scan(
 
     root = Path(root_path).resolve()
     manifests = _npm_manifests(root)
+    usage_available = ripgrep_available()
     usage_index = build_npm_usage_index(str(root), limit_per_package=usage_limit)
     lock_footprints = npm_lockfile_footprints(root)
     packages = [
@@ -58,6 +60,7 @@ def package_diet_scan(
             lock_footprints.get(package["normalized_name"]),
             config=config,
             db=db,
+            usage_available=usage_available,
         )
         for manifest in manifests
         for package in manifest["packages"]
@@ -75,6 +78,14 @@ def package_diet_scan(
         "generated_at": utc_now(),
         "package_count": len(packages),
         "summary": summary(packages),
+        "usage_scan": {
+            "status": "available" if usage_available else "unavailable",
+            "note": (
+                None
+                if usage_available
+                else f"{RIPGREP_MISSING_NOTE}; usage-based classifications were downgraded to Review."
+            ),
+        },
         "footprint_coverage": {
             "lockfile_packages": footprint_count,
             "registry_metadata_packages": metadata_count,
@@ -100,16 +111,23 @@ def _assess_manifest_package(
     *,
     config: GuardianConfig | None,
     db: Database | None,
+    usage_available: bool = True,
 ) -> dict:
     usage = usage_index.get(package["normalized_name"]) or _empty_usage(root)
     symbols = symbols_from_usage(package["name"], usage["hits"])
     enriched = _enrich_package(package, lock_footprint, config=config, db=db)
     assessment = assess_package(enriched, usage, symbols)
-    if assessment["classification"] == "Unused Candidate":
+    if not usage_available:
+        # Without rg there is no usage evidence at all; a zero hit count must
+        # never be presented as proof that a package is unused or replaceable.
+        usage = {**usage, "scan_status": "unavailable", "scan_note": RIPGREP_MISSING_NOTE}
+        if assessment["classification"] != "Keep":
+            assessment = usage_unavailable_assessment()
+    elif assessment["classification"] == "Unused Candidate":
         usage, symbols, assessment = _maybe_downgrade_dynamic_reference(root, enriched, usage, symbols, assessment)
     fanout = (
         wrapper_fanout(root, usage["hits"], enriched["name"])
-        if _should_check_fanout(usage, assessment, large_repo)
+        if usage_available and _should_check_fanout(usage, assessment, large_repo)
         else {"top_symbol": None, "max_hit_count": 0, "candidates": []}
     )
     result = {

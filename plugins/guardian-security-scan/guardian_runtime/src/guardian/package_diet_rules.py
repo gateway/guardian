@@ -185,6 +185,22 @@ def dynamic_reference_assessment() -> dict:
     )
 
 
+def usage_unavailable_assessment() -> dict:
+    return _assessment(
+        "Review",
+        "Low",
+        "high",
+        (
+            "Usage analysis was unavailable because ripgrep (rg) is not installed, "
+            "so Guardian cannot tell whether this package is used."
+        ),
+        (
+            "Install ripgrep and rerun the package-diet scan before removing, "
+            "replacing, or vendoring this dependency."
+        ),
+    )
+
+
 def apply_fanout_adjustment(package: dict) -> None:
     fanout = package.get("wrapper_fanout") or {}
     if int(fanout.get("max_hit_count") or 0) < 10:
