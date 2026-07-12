@@ -1,0 +1,45 @@
+name: False positive
+description: Guardian flagged or paused a package that is actually fine
+labels: [false-positive]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        To unblock yourself immediately: `guardian policy accept-name <ecosystem> <name>` silences a name-similarity pause locally. Filing this issue helps us tune the detector for everyone.
+  - type: input
+    id: package
+    attributes:
+      label: Package and version
+      placeholder: "npm preact@10.20.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: signal
+    attributes:
+      label: Which signal was wrong?
+      options:
+        - typosquat-suspected
+        - malicious-catalog-match
+        - known-vulnerability pause
+        - install-script / behavioral signal
+        - lockfile hygiene signal
+        - registry metadata signal
+        - package-diet classification
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: verdict
+    attributes:
+      label: Guardian's output
+      description: Paste the verdict JSON or the pause/deny message you saw.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: why-fine
+    attributes:
+      label: Why is the package legitimate?
+      description: e.g. official package, known publisher, intentional fork — anything that helps us adjust the heuristic or whitelist.
+    validations:
+      required: true
