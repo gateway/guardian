@@ -34,6 +34,10 @@ def main() -> int:
     if hook_path != "./hooks/hooks.json" or not (PLUGIN_ROOT / hook_path).is_file():
         raise SystemExit("Codex plugin hook manifest path is missing or invalid")
 
+    if not VALIDATOR.is_file():
+        print("Codex plugin manifest checks passed (Codex system validator not found; skipped CLI validation)")
+        return 0
+
     result = run_validator(PLUGIN_ROOT)
     if result.returncode == 0:
         print(result.stdout.strip())
