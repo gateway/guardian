@@ -1,0 +1,41 @@
+name: Release Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    name: Guardian release gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ripgrep
+        # Guardian's package-usage scanning shells out to rg; without it,
+        # usage-dependent gates (package diet) cannot classify correctly.
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Run release checks
+        run: bash scripts/release_check.sh
+        env:
+          # Advisory sources are queried anonymously; a token only raises
+          # GHSA rate limits and is not required for the release gates.
+          GUARDIAN_STATE_DIR: ${{ runner.temp }}/guardian-state

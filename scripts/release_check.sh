@@ -43,9 +43,14 @@ else
 fi
 
 echo "== skills =="
-for skill_dir in "$PLUGIN_ROOT"/skills/*; do
-  python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" "$skill_dir"
-done
+SKILL_VALIDATOR="$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
+if [[ -f "$SKILL_VALIDATOR" ]]; then
+  for skill_dir in "$PLUGIN_ROOT"/skills/*; do
+    python3 "$SKILL_VALIDATOR" "$skill_dir"
+  done
+else
+  echo "skill-creator validator not found; skipped deep skill validation"
+fi
 
 echo "== python compile =="
 python3 -m py_compile $(find "$PLUGIN_ROOT/guardian_runtime/src/guardian" -name '*.py' -print)
@@ -84,24 +89,32 @@ echo "== milestone 5 package diet and outreach safety =="
 python3 "$REPO_ROOT/scripts/test_milestone5.py"
 
 echo "== local Codex marketplace install =="
-CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin marketplace add "$REPO_ROOT" >/tmp/guardian-marketplace-add.txt
-CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin list --marketplace guardian >/tmp/guardian-marketplace-list.txt
-CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin add guardian-security-scan@guardian >/tmp/guardian-plugin-add.txt
-INSTALLED_PLUGIN_ROOT="$(find "$CODEX_HOME_RELEASE/plugins/cache/guardian/guardian-security-scan" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+if command -v codex >/dev/null 2>&1; then
+  CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin marketplace add "$REPO_ROOT" >/tmp/guardian-marketplace-add.txt
+  CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin list --marketplace guardian >/tmp/guardian-marketplace-list.txt
+  CODEX_HOME="$CODEX_HOME_RELEASE" codex plugin add guardian-security-scan@guardian >/tmp/guardian-plugin-add.txt
+  INSTALLED_PLUGIN_ROOT="$(find "$CODEX_HOME_RELEASE/plugins/cache/guardian/guardian-security-scan" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+  HOOK_SMOKE_LABEL="installed Codex hook smoke passed"
+else
+  echo "codex CLI not found; skipped marketplace install, running hook smoke from checkout"
+  INSTALLED_PLUGIN_ROOT="$PLUGIN_ROOT"
+  HOOK_SMOKE_LABEL="checkout hook smoke passed"
+fi
 "$INSTALLED_PLUGIN_ROOT/scripts/guardian" report summary --json >/tmp/guardian-installed-smoke.json
 GUARDIAN_STATE_DIR="$CODEX_HOME_TMP/state-codex-hook" \
-  "$INSTALLED_PLUGIN_ROOT/hooks/preinstall_gate.py" <<'JSON' >/tmp/guardian-codex-hook.json
+  python3 "$INSTALLED_PLUGIN_ROOT/hooks/preinstall_gate.py" <<'JSON' >/tmp/guardian-codex-hook.json
 {"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm install @beproduct/nestjs-auth@0.1.18"}}
 JSON
-python3 - <<'PY'
+HOOK_SMOKE_LABEL="$HOOK_SMOKE_LABEL" python3 - <<'PY'
 import json
+import os
 from pathlib import Path
 
 payload = json.loads(Path("/tmp/guardian-codex-hook.json").read_text())
 decision = (payload.get("hookSpecificOutput") or {}).get("permissionDecision")
 if decision != "deny":
-    raise SystemExit(f"installed Codex hook did not deny fixture: {payload}")
-print("installed Codex hook smoke passed")
+    raise SystemExit(f"hook smoke did not deny fixture: {payload}")
+print(os.environ["HOOK_SMOKE_LABEL"])
 PY
 
 echo "release checks passed"
