@@ -17,7 +17,7 @@ VALUE_FLAGS = {
     "--extra-index-url", "--implementation", "--index", "--index-url",
     "--platform", "--prefix", "--project", "--python", "--registry", "--root",
     "--save-prefix", "--source", "--src", "--target", "--timeout", "--upgrade-strategy",
-    "--user-agent", "--userconfig", "--workspace", "-C", "-c", "-i", "-w",
+    "--user-agent", "--userconfig", "--workspace", "-C", "-c", "-i", "-t", "-w",
 }
 BOOLEAN_FLAGS_BY_MANAGER = {
     "npm": {"--package-lock"},
@@ -26,8 +26,9 @@ BOOLEAN_FLAGS_BY_MANAGER = {
 VALUE_FLAGS_BY_MANAGER = {
     "bun": {"--filter"},
     "pnpm": {"--filter"},
+    "poetry": {"--group", "-G"},
 }
-SKIP_PREFIXES = (".", "/", "file:", "git+", "git://", "github:", "http://", "https://", "ssh:")
+REMOTE_PREFIXES = ("git+", "git://", "github:", "http://", "https://", "ssh:")
 
 
 @dataclass(frozen=True)
@@ -84,16 +85,17 @@ def _parse_segment(tokens: list[str], *, depth: int) -> list[InstallRequest]:
         return []
     command = tokens[0].rsplit("/", 1)[-1]
     args = tokens[1:]
-    if command in SHELL_COMMANDS and len(args) >= 2 and args[0] in {"-c", "-lc"}:
+    shell_command = _shell_command_string(args) if command in SHELL_COMMANDS else None
+    if shell_command is not None:
         if depth >= MAX_SHELL_RECURSION:
             return [InstallRequest(
                 "unknown",
                 None,
                 None,
-                args[1],
+                shell_command,
                 "nested shell command exceeded Guardian's safe parsing depth",
             )]
-        return _extract_install_requests(args[1], depth=depth + 1)
+        return _extract_install_requests(shell_command, depth=depth + 1)
     ecosystem: str | None = None
     specs: list[str] = []
 
@@ -206,6 +208,23 @@ def _strip_prefixes(tokens: list[str]) -> list[str]:
     return tokens[index:]
 
 
+def _shell_command_string(args: list[str]) -> str | None:
+    """Extract the command payload from common sh/bash/zsh -c flag forms."""
+
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token == "--":
+            return None
+        if token == "-c" or (token.startswith("-") and not token.startswith("--") and "c" in token[1:]):
+            return args[index + 1] if index + 1 < len(args) else None
+        if token.startswith("-"):
+            index += 1
+            continue
+        return None
+    return None
+
+
 def _package_specs(tokens: list[str], *, manager: str) -> list[str]:
     specs: list[str] = []
     manager_value_flags = VALUE_FLAGS_BY_MANAGER.get(manager, set())
@@ -247,8 +266,10 @@ def _parse_spec(ecosystem: str, spec: str) -> InstallRequest:
         if name:
             return InstallRequest(ecosystem, name, version, spec)
         return InstallRequest(ecosystem, None, None, spec, "npm alias could not be resolved safely")
-    if spec.startswith(SKIP_PREFIXES) or " @ " in spec or spec.startswith(("git@", "npm:")):
-        return InstallRequest(ecosystem, None, None, spec, "direct URL, VCS, alias, or local-path dependency")
+    if _is_local_path_spec(spec):
+        return InstallRequest(ecosystem, None, None, spec, "local-path")
+    if _is_remote_or_opaque_spec(spec):
+        return InstallRequest(ecosystem, None, None, spec, "direct URL, VCS, or alias dependency")
     if ecosystem == "npm":
         name, version = parse_npm_spec(spec)
         if version and version.startswith(("git", "http", "file", "npm:")):
@@ -263,3 +284,22 @@ def _parse_spec(ecosystem: str, spec: str) -> InstallRequest:
     constraint = match.group(2).strip()
     version = constraint[2:].strip() if constraint.startswith("==") else None
     return InstallRequest(ecosystem, name, version, spec)
+
+
+def _is_local_path_spec(spec: str) -> bool:
+    """Classify filesystem references separately from remote opaque installs."""
+
+    if spec in {".", ".."} or spec.startswith(("./", "../", "/", "file:")):
+        return True
+    if " @ " in spec:
+        _name, target = spec.split(" @ ", 1)
+        return target.strip().startswith((".", "/", "file:"))
+    return False
+
+
+def _is_remote_or_opaque_spec(spec: str) -> bool:
+    if spec.startswith(REMOTE_PREFIXES) or spec.startswith(("git@", "npm:")):
+        return True
+    if " @ " in spec:
+        return True
+    return False

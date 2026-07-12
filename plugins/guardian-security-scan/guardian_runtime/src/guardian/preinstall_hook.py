@@ -123,12 +123,13 @@ def hook_output(evaluation: dict) -> dict | None:
 
 
 def _requires_review(result: dict) -> bool:
-    if result.get("opaque_reason"):
+    if result.get("opaque_reason") and result.get("opaque_reason") != "local-path":
         return True
     return any(signal.get("signal_type") in REVIEW_SIGNAL_TYPES for signal in result.get("signals", []))
 
 
 def _opaque_result(request: InstallRequest) -> dict:
+    local_path = request.opaque_reason == "local-path"
     return {
         "verdict": "warn",
         "ecosystem": request.ecosystem,
@@ -138,10 +139,18 @@ def _opaque_result(request: InstallRequest) -> dict:
         "opaque_reason": request.opaque_reason,
         "signals": [{
             "signal_type": "opaque-install-source",
-            "signal_grade": "behavioral-high",
-            "explanation": f"Guardian cannot verify this {request.opaque_reason} before installation.",
+            "signal_grade": "info" if local_path else "behavioral-high",
+            "explanation": (
+                "Guardian is allowing this local filesystem dependency; review local code changes separately."
+                if local_path
+                else f"Guardian cannot verify this {request.opaque_reason} before installation."
+            ),
         }],
-        "explanation": "Review the source, immutable revision, and publisher before installation.",
+        "explanation": (
+            "Local dependency paths are already present on disk and are not registry package fetches."
+            if local_path
+            else "Review the source, immutable revision, and publisher before installation."
+        ),
     }
 
 

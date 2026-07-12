@@ -164,6 +164,16 @@ def fake_failed_gh(_args: list[str]) -> tuple[int, str, str]:
     return 1, "", "fixture GitHub failure"
 
 
+def fake_available_gh(args: list[str]) -> tuple[int, str, str]:
+    if args[1:3] == ["repo", "view"]:
+        return 0, json.dumps({
+            "isArchived": False,
+            "defaultBranchRef": {"name": "main"},
+            "url": "https://github.com/example/retry",
+        }), ""
+    return 0, "[]", ""
+
+
 def assert_outreach_safety(tmp: Path) -> None:
     repo_dir = tmp / "outreach-repo"
     repo_dir.mkdir()
@@ -220,6 +230,18 @@ def assert_outreach_safety(tmp: Path) -> None:
     )
     if unavailable["status"] != "checks-unavailable":
         raise AssertionError(f"failed GitHub check did not require manual verification: {unavailable}")
+    retried = preflight_outreach(
+        config,
+        db,
+        repo="example/unavailable",
+        repo_dir=repo_dir,
+        advisory_id="GHSA-UNAVAILABLE-1",
+        package="helper",
+        version="1.0.0",
+        gh_runner=fake_available_gh,
+    )
+    if retried["status"] == "blocked-ledger":
+        raise AssertionError(f"retryable check failure permanently blocked outreach: {retried}")
     db.close()
 
     eligible_repo = tmp / "eligible-repo"
@@ -302,6 +324,42 @@ def assert_outreach_safety(tmp: Path) -> None:
         raise AssertionError(f"default-branch fix was not detected: {fixed}")
     fixed_db.close()
 
+    vendored_repo = tmp / "vendored-branch-repo"
+    vendored_repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=vendored_repo, check=True)
+    (vendored_repo / "package-lock.json").write_text('{"packages":{}}\n')
+    subprocess.run(["git", "add", "package-lock.json"], cwd=vendored_repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Guardian", "-c", "user.email=guardian@example.test", "commit", "-qm", "fixture"],
+        cwd=vendored_repo,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/main", "HEAD"],
+        cwd=vendored_repo,
+        check=True,
+    )
+    nested_lock = vendored_repo / "node_modules" / "uri-js" / "yarn.lock"
+    nested_lock.parent.mkdir(parents=True)
+    nested_lock.write_text("helper@1.0.0\n")
+    vendored_state = tmp / "vendored-branch-state"
+    vendored_config = config_for(vendored_state)
+    vendored_db = Database(vendored_config.db_path)
+    vendored_db.initialize()
+    vendored = preflight_outreach(
+        vendored_config,
+        vendored_db,
+        repo="example/vendored",
+        repo_dir=vendored_repo,
+        advisory_id="GHSA-VENDORED-1",
+        package="helper",
+        version="1.0.0",
+        gh_runner=fake_clean_gh,
+    )
+    if vendored.get("checks", {}).get("default_branch", {}).get("files"):
+        raise AssertionError(f"vendored dependency metadata was used for branch evidence: {vendored}")
+    vendored_db.close()
+
     cap_state = tmp / "cap-state"
     cap_config = config_for(cap_state, max_outreach=1)
     cap_db = Database(cap_config.db_path)
@@ -325,6 +383,18 @@ def assert_outreach_safety(tmp: Path) -> None:
     )
     if capped["status"] != "suppressed-daily-cap":
         raise AssertionError(f"daily cap did not suppress second proposal: {capped}")
+    uncapped_config = config_for(cap_state, max_outreach=5)
+    uncapped = preflight_outreach(
+        uncapped_config,
+        cap_db,
+        repo="example/two",
+        repo_dir=repo_dir,
+        advisory_id="GHSA-CAP-0002",
+        package="two",
+        gh_runner=fake_clean_gh,
+    )
+    if uncapped["status"] == "blocked-ledger":
+        raise AssertionError(f"daily-cap ledger row blocked later retry: {uncapped}")
     cap_db.close()
 
 

@@ -43,6 +43,7 @@ The hook:
 
 - denies exact malicious-catalog matches;
 - pauses probable typosquats, known vulnerable versions, and direct URL/VCS installs for agent review;
+- allows local filesystem installs such as `pip install -e .` or `npm install ./packages/lib` with additional context;
 - allows ordinary install-script warnings with additional context;
 - allows an install with a visible warning when live sources are unavailable.
 
@@ -77,6 +78,7 @@ Set `preinstall_gate_enabled` to `false` to bypass package checks cleanly. The h
 
 - The gate cannot detect unpublished zero-days or malicious code absent from its evidence sources.
 - Registry lifecycle scripts are behavioral review evidence, not proof of malware.
-- Direct URL, VCS, alias, and local-path installs cannot be verified as normal registry package versions.
+- Direct URL, VCS, and alias installs cannot be verified as normal registry package versions and pause for review.
+- Local-path installs are not registry fetches; Guardian allows them with context and expects normal code review or project scanning to assess the local source.
 - Shell recursion is deliberately bounded, and arbitrary shell evaluation is out of scope.
 - A network outage produces incomplete coverage and a fail-open warning rather than blocking all development.

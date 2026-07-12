@@ -2,6 +2,20 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.1 - 2026-07-12
+
+### Fixed
+
+- Local filesystem installs such as `pip install -e .`, `pip install .`, `uv pip install -e .`, and `npm install ./packages/lib` now warn without blocking the pre-install gate. Remote URL, VCS, and unresolved alias installs still pause for review.
+- The install-command parser now handles additional Poetry and pip value flags plus split or clustered shell `-c` wrappers such as `bash -l -c` and `zsh -ec`.
+- Outreach preflight no longer permanently blocks retryable `checks-unavailable` or `suppressed-daily-cap` ledger entries.
+- Default-branch outreach checks ignore generated and vendored dependency trees such as `node_modules`, `vendor`, `dist`, build folders, and virtualenvs.
+- npm registry intelligence now requests exact-version metadata before falling back to the package-wide document for release time or package context.
+
+### Verified
+
+- Focused regression tests cover the parser/hook bypasses, local-path hook policy, retryable outreach rows, vendored default-branch evidence, and exact-version npm registry fetch order.
+
 ## 1.6.0 - 2026-07-11
 
 ### Added

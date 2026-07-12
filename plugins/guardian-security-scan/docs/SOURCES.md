@@ -63,7 +63,7 @@ This is not a standalone digital signature. The hash manifest and catalogs are d
 
 ## Registry Intelligence Privacy
 
-Registry intelligence sends the package name and requested exact version to the public npm or PyPI registry. Guardian stores normalized field-level observations and hashes npm maintainer identities; it does not store full registry response bodies in SQLite. HTTP cache bodies remain local under Guardian's state directory for the configured cache TTL.
+Registry intelligence sends the package name and requested exact version to the public npm or PyPI registry. npm checks request the exact version document first, then fall back to the package-wide document only when release time or package-level context is needed. Guardian stores normalized field-level observations and hashes npm maintainer identities; it does not store full registry response bodies in SQLite. HTTP cache bodies remain local under Guardian's state directory for the configured cache TTL.
 
 Signals are behavioral context, not malware claims:
 

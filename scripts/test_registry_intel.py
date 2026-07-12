@@ -29,9 +29,27 @@ NOW = datetime.now(timezone.utc)
 
 class RegistryHandler(BaseHTTPRequestHandler):
     request_count = 0
+    request_paths: list[str] = []
 
     def do_GET(self) -> None:  # noqa: N802
         type(self).request_count += 1
+        type(self).request_paths.append(self.path)
+        if self.path.startswith("/npm/drift-package/"):
+            version = self.path.rsplit("/", 1)[-1]
+            current = version == "2.0.0"
+            self._send({
+                "name": "drift-package",
+                "version": version,
+                "maintainers": [{
+                    "name": "maintainer-b" if current else "maintainer-a",
+                    "email": "b@example.test" if current else "a@example.test",
+                }],
+                "repository": {"url": "git+https://github.com/example/new.git" if current else "git+https://github.com/example/old.git"},
+                "deprecated": "replace this release" if current else None,
+                "scripts": {"postinstall": "node setup.js"} if current else {},
+                "dist": {"unpackedSize": 2000 if current else 1000} if current else {"attestations": {"url": "https://example.test/attestation"}, "unpackedSize": 1000},
+            })
+            return
         if self.path.startswith("/npm/drift-package"):
             self._send({
                 "dist-tags": {"latest": "2.0.0"},
@@ -149,6 +167,9 @@ def assert_version_drift(config: GuardianConfig, db: Database, root: Path) -> No
         [record("npm", "drift-package", "2.0.0"), record("pypi", "yanked-package", "2.0.0")],
     )
     second = detect_registry_metadata_changes(config, db, str(root), [changed])
+    npm_paths = [path for path in RegistryHandler.request_paths if path.startswith("/npm/drift-package")]
+    if npm_paths[:1] != ["/npm/drift-package/2.0.0"] or "/npm/drift-package/1.0.0" not in npm_paths:
+        raise AssertionError(f"npm registry intel should fetch exact version documents first: {npm_paths}")
     signal_types = {item["signal_type"] for item in second["signals"]}
     expected = {
         "version-published-recently",

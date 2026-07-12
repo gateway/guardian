@@ -84,9 +84,9 @@ guardian outreach preflight \
   --json
 ```
 
-The preflight checks open and closed PRs/issues, archived status, repository policy files, default-branch dependency evidence, Guardian's local outreach ledger, and the daily cap. If `gh` or a required check is unavailable, the result is `Verify manually before reporting`, not approval.
+The preflight checks open and closed PRs/issues, archived status, repository policy files, default-branch dependency evidence, Guardian's local outreach ledger, and the daily cap. Default-branch dependency evidence ignores generated and vendored folders such as `node_modules`, `vendor`, `dist`, build folders, and virtualenvs. If `gh` or a required check is unavailable, the result is `Verify manually before reporting`, not approval.
 
-Guardian records each proposed or suppressed repository/advisory/package identity in SQLite. A repeat preflight is blocked so agents cannot rediscover and re-propose the same outreach across sessions. `max_outreach_per_day` defaults to `5`; do not bypass it with alternate state directories.
+Guardian records each proposed or suppressed repository/advisory/package identity in SQLite. A repeat preflight is blocked so agents cannot rediscover and re-propose the same outreach across sessions. Temporary states such as unavailable checks or a daily-cap suppression can be retried later. `max_outreach_per_day` defaults to `5`; do not bypass it with alternate state directories.
 
 After Guardian shows the exact proposed diff and complete outreach draft, the human must explicitly confirm before any PR, issue, discussion, or private report is created. Record the result afterward:
 

@@ -96,7 +96,7 @@ Package diet remains separate from vulnerability posture. It combines bounded st
 
 ## Outreach Boundary
 
-Guardian's outreach ledger is local SQLite state, not telemetry. It records one decision per repository/advisory/package and enforces `max_outreach_per_day`. The preflight uses optional `gh` calls for archive/default-branch and duplicate PR/issue evidence; unavailable checks stop at manual verification. No preflight, skill, or report is authorization to create external content. The final draft/diff must be shown to the human and explicitly confirmed first.
+Guardian's outreach ledger is local SQLite state, not telemetry. It records one decision per repository/advisory/package and enforces `max_outreach_per_day`. Retryable states such as unavailable checks or a temporary daily-cap suppression can be re-evaluated on a later run; confirmed reports, in-flight upstream work, archived repos, and default-branch-fixed decisions remain terminal. The preflight uses optional `gh` calls for archive/default-branch and duplicate PR/issue evidence; unavailable checks stop at manual verification. Default-branch evidence ignores generated and vendored dependency trees and records that the comparison uses the local `origin/<branch>` ref. No preflight, skill, or report is authorization to create external content. The final draft/diff must be shown to the human and explicitly confirmed first.
 
 ## Catalog Verification And Integrity
 
@@ -149,7 +149,7 @@ Scan-time typo checks follow snapshot discipline: they run only for names first 
 
 ## Pre-Install Boundary
 
-The package gate prioritizes local evidence, then performs bounded registry and OSV checks. Exact malicious-catalog evidence blocks by default. Typosquat, opaque source, and any exact-version OSV vulnerability signal require review regardless of advisory severity. Source outages fail open with an explicit warning so offline development is not disabled.
+The package gate prioritizes local evidence, then performs bounded registry and OSV checks. Exact malicious-catalog evidence blocks by default. Typosquat, remote opaque source, and any exact-version OSV vulnerability signal require review regardless of advisory severity. Local filesystem installs are allowed with warning context because they are already on disk and should be covered by normal code review or a project scan. Source outages fail open with an explicit warning so offline development is not disabled.
 
 The hook reduces accidental agent installs but is not a sandbox. Host support for shell `PreToolUse` interception can vary, requirements files are not expanded by the hook, and unknown installers may bypass it. Skill instructions therefore retain an explicit package-check step as defense in depth.
 

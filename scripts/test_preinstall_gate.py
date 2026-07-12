@@ -141,9 +141,14 @@ def assert_command_parser() -> None:
         "command npm i commander": ("npm", "commander"),
         "sh -c 'npm install shell-pkg'": ("npm", "shell-pkg"),
         "bash -lc 'python3.12 -m pip install shell-python-pkg'": ("pypi", "shell-python-pkg"),
+        "bash -l -c 'npm install shell-login-pkg'": ("npm", "shell-login-pkg"),
+        "zsh -ec 'pip install shell-cluster-pkg'": ("pypi", "shell-cluster-pkg"),
         "env BAR=2 yarn add eslint": ("npm", "eslint"),
         "uv add --dev pytest": ("pypi", "pytest"),
         "poetry add 'black==25.1.0'": ("pypi", "black"),
+        "poetry add --group dev requests": ("pypi", "requests"),
+        "poetry add -G dev requests": ("pypi", "requests"),
+        "pip install -t vendor requests": ("pypi", "requests"),
         "npm install --workspace web react": ("npm", "react"),
         "npm --prefix dir install evil-pkg": ("npm", "evil-pkg"),
         "npm --package-lock install evil-pkg": ("npm", "evil-pkg"),
@@ -158,6 +163,9 @@ def assert_command_parser() -> None:
     opaque = extract_install_requests("pip install git+https://github.com/example/pkg.git")
     if len(opaque) != 1 or not opaque[0].opaque_reason:
         raise AssertionError(f"VCS install should require review: {opaque}")
+    local_path = extract_install_requests("pip install -e .")
+    if len(local_path) != 1 or local_path[0].opaque_reason != "local-path":
+        raise AssertionError(f"local editable install should be classified separately: {local_path}")
     alias = extract_install_requests("yarn add pkg@npm:other-pkg@1.0.0")
     if len(alias) != 1 or (alias[0].name, alias[0].version) != ("other-pkg", "1.0.0"):
         raise AssertionError(f"npm alias should check the real package and pinned version: {alias}")
@@ -283,6 +291,10 @@ def assert_hook_decisions(config: GuardianConfig, db: Database) -> None:
     opaque = evaluate_install_command(config, db, "pip install git+https://github.com/example/pkg.git")
     if opaque["decision"] != "deny":
         raise AssertionError(f"opaque source install should pause for review: {opaque}")
+    for command in ("pip install -e .", "pip install .", "uv pip install -e .", "npm install ./packages/lib"):
+        local_path = evaluate_install_command(config, db, command)
+        if local_path["decision"] != "allow" or not local_path["message"]:
+            raise AssertionError(f"local path install should warn without denying: {command}: {local_path}")
     batch = evaluate_install_command(
         config,
         db,

@@ -19,6 +19,21 @@ from .upstream_context import (
 
 
 GhRunner = Callable[[list[str]], tuple[int, str, str]]
+RETRYABLE_OUTREACH_ACTIONS = {"checks-unavailable", "suppressed-daily-cap"}
+EXCLUDED_DEPENDENCY_EVIDENCE_PARTS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "target",
+    "vendor",
+    "venv",
+}
 
 
 def preflight_outreach(
@@ -40,7 +55,7 @@ def preflight_outreach(
     if not advisory_id or not package:
         raise ValueError("advisory_id and package are required")
     existing = db.outreach_entry(repo, advisory_id, package)
-    if existing:
+    if existing and existing.get("action") not in RETRYABLE_OUTREACH_ACTIONS:
         return {
             "status": "blocked-ledger",
             "decision": "Do not report, already recorded",
@@ -236,7 +251,7 @@ def _default_branch_dependency_check(
             "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "requirements.txt",
             "uv.lock", "go.sum", "Cargo.lock", "composer.lock",
         }
-        and ".git" not in path.parts
+        and not _is_excluded_dependency_evidence_path(repo_dir, path)
     ]
     local_evidence = []
     for path in candidate_files:
@@ -250,6 +265,7 @@ def _default_branch_dependency_check(
         return {"status": "unavailable", "fixed": False, "reason": "scanned dependency evidence not located"}
     checked = []
     remote_ref = f"origin/{default_branch}"
+    freshness_note = "default-branch comparison uses the local origin ref; fetch before outreach if the clone may be stale"
     for path in local_evidence:
         relative = path.relative_to(repo_dir).as_posix()
         completed = subprocess.run(
@@ -265,11 +281,33 @@ def _default_branch_dependency_check(
                 "fixed": False,
                 "reason": f"could not read {relative} from {remote_ref}",
                 "files": checked,
+                "remote_ref": remote_ref,
+                "freshness": freshness_note,
             }
         checked.append(relative)
         if package in completed.stdout and version in completed.stdout:
-            return {"status": "checked", "fixed": False, "files": checked}
-    return {"status": "checked", "fixed": True, "files": checked}
+            return {
+                "status": "checked",
+                "fixed": False,
+                "files": checked,
+                "remote_ref": remote_ref,
+                "freshness": freshness_note,
+            }
+    return {
+        "status": "checked",
+        "fixed": True,
+        "files": checked,
+        "remote_ref": remote_ref,
+        "freshness": freshness_note,
+    }
+
+
+def _is_excluded_dependency_evidence_path(repo_dir: Path, path: Path) -> bool:
+    try:
+        relative_parts = path.relative_to(repo_dir).parts
+    except ValueError:
+        relative_parts = path.parts
+    return bool(set(relative_parts) & EXCLUDED_DEPENDENCY_EVIDENCE_PARTS)
 
 
 def _record_decision(

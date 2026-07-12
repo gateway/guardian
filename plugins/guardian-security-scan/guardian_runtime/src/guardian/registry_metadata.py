@@ -7,7 +7,7 @@ import json
 from urllib.parse import quote
 
 from .config import GuardianConfig
-from .http_client import GuardianHttp
+from .http_client import GuardianHttp, HttpRequestError
 from .util import normalize_package_name, quote_package_path, utc_now
 
 
@@ -25,7 +25,7 @@ class RegistryMetadataClient:
         """Fetch and normalize one immutable package-version record."""
 
         if ecosystem == "npm":
-            url = f"{self.config.npm_registry_url.rstrip('/')}/{quote_package_path(package_name)}"
+            return self._fetch_npm(package_name, version)
         elif ecosystem == "pypi":
             url = (
                 f"{self.config.pypi_registry_url.rstrip('/')}/"
@@ -37,9 +37,30 @@ class RegistryMetadataClient:
         if result.error:
             raise RuntimeError(result.error)
         payload = result.json()
-        if ecosystem == "npm":
-            return normalize_npm_metadata(package_name, version, payload)
         return normalize_pypi_metadata(package_name, version, payload)
+
+    def _fetch_npm(self, package_name: str, version: str) -> dict:
+        base = f"{self.config.npm_registry_url.rstrip('/')}/{quote_package_path(package_name)}"
+        exact_result = self.http.get(f"{base}/{quote(version, safe='')}")
+        if not exact_result.error:
+            try:
+                exact_payload = exact_result.json()
+            except HttpRequestError:
+                exact_payload = {}
+            if _looks_like_npm_version_payload(exact_payload, version):
+                package_payload = None
+                if not _has_package_context(exact_payload, version):
+                    package_payload = self._fetch_npm_package_payload(base)
+                return normalize_npm_version_metadata(package_name, version, exact_payload, package_payload)
+
+        package_payload = self._fetch_npm_package_payload(base)
+        return normalize_npm_metadata(package_name, version, package_payload)
+
+    def _fetch_npm_package_payload(self, url: str) -> dict:
+        result = self.http.get(url)
+        if result.error:
+            raise RuntimeError(result.error)
+        return result.json()
 
 
 def normalize_npm_metadata(package_name: str, version: str, payload: dict) -> dict:
@@ -49,7 +70,19 @@ def normalize_npm_metadata(package_name: str, version: str, payload: dict) -> di
     version_payload = versions.get(version)
     if not isinstance(version_payload, dict):
         raise RuntimeError(f"npm registry metadata does not contain {package_name}@{version}")
-    maintainers = version_payload.get("maintainers") or payload.get("maintainers") or []
+    return normalize_npm_version_metadata(package_name, version, version_payload, payload)
+
+
+def normalize_npm_version_metadata(
+    package_name: str,
+    version: str,
+    version_payload: dict,
+    package_payload: dict | None = None,
+) -> dict:
+    """Normalize npm's exact-version document with optional package context."""
+
+    package_payload = package_payload or {}
+    maintainers = version_payload.get("maintainers") or package_payload.get("maintainers") or []
     maintainer_ids = sorted(
         {
             "|".join(
@@ -67,26 +100,36 @@ def normalize_npm_metadata(package_name: str, version: str, payload: dict) -> di
     )
     dist = version_payload.get("dist") or {}
     scripts = version_payload.get("scripts") if isinstance(version_payload.get("scripts"), dict) else {}
+    time_payload = package_payload.get("time") if isinstance(package_payload.get("time"), dict) else {}
     return {
         "ecosystem": "npm",
         "package_name": package_name,
         "normalized_name": normalize_package_name("npm", package_name),
         "version": version,
-        "latest_version": (payload.get("dist-tags") or {}).get("latest"),
-        "published_at": (payload.get("time") or {}).get(version),
+        "latest_version": (package_payload.get("dist-tags") or {}).get("latest"),
+        "published_at": version_payload.get("published_at") or time_payload.get(version),
         "maintainers_hash": _stable_hash(maintainer_ids) if maintainer_ids else None,
         "maintainer_count": len(maintainer_ids),
         "provenance_present": bool(dist.get("attestations")),
         "deprecated": bool(version_payload.get("deprecated")),
         "deprecated_message": version_payload.get("deprecated"),
         "yanked": False,
-        "repo_url": _repository_url(version_payload.get("repository") or payload.get("repository")),
+        "repo_url": _repository_url(version_payload.get("repository") or package_payload.get("repository")),
         "size_bytes": _optional_int(dist.get("unpackedSize")),
-        "license": _license_value(version_payload.get("license") or payload.get("license")),
+        "license": _license_value(version_payload.get("license") or package_payload.get("license")),
         "has_install_script": bool(set(scripts) & NPM_INSTALL_SCRIPTS),
         "fetched_at": utc_now(),
         "source": "npm-registry",
     }
+
+
+def _looks_like_npm_version_payload(payload: dict, version: str) -> bool:
+    return isinstance(payload, dict) and payload.get("version") == version and not isinstance(payload.get("versions"), dict)
+
+
+def _has_package_context(payload: dict, version: str) -> bool:
+    time_payload = payload.get("time")
+    return isinstance(time_payload, dict) and version in time_payload and bool(payload.get("dist-tags"))
 
 
 def normalize_pypi_metadata(package_name: str, version: str, payload: dict) -> dict:
