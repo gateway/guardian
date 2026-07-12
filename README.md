@@ -1,19 +1,65 @@
 # Guardian
 
-Guardian is a local-first security plugin for AI coding agents. It helps Codex and Claude Code scan npm, Python, Go, Rust, and Composer projects for known package risk, explain what matters, and avoid unnecessary dependency churn.
+**Local-first dependency security for AI coding agents.** Guardian gives Codex and Claude Code a read-only security workflow for npm, Python, Go, Rust, and Composer projects: it checks packages *before* they are installed, scans what is already there against advisory and malicious-package intelligence, watches for suspicious dependency behavior over time, and explains what actually matters without recommending pointless dependency churn.
 
-Use Guardian when you want your agent to answer: "Is this project carrying known dependency risk, what changed since the last scan, and what should we do next?"
+[![Release Check](https://github.com/gateway/guardian/actions/workflows/release-check.yml/badge.svg)](https://github.com/gateway/guardian/actions/workflows/release-check.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Runtime](https://img.shields.io/badge/runtime-Python%20stdlib%20only-0F766E.svg)](docs/TRUST_MODEL.md)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](#install-in-claude-code)
+[![Codex](https://img.shields.io/badge/Codex-plugin-333.svg)](#install-in-codex)
 
-Guardian is built for modern AI-assisted development, where projects can accumulate dependencies quickly and not every scary advisory is a real production issue.
+## What it looks like
+
+Your agent types `npm install lodahs` (note the typo). Guardian's pre-install hook stops it before anything is fetched:
+
+```text
+Guardian paused this install for package-risk review.
+- lodahs: Package name is unusually similar to popular npm package 'lodash'
+  (rank 145). Verify the spelling and publisher before installation.
+```
+
+The same check is available as a skill or CLI verdict (trimmed real output):
+
+```json
+{
+  "verdict": "block",
+  "name": "lodahs",
+  "resolved_version": "0.0.1-security",
+  "explanation": "Blocked by OSV/OpenSSF malicious-package evidence for this exact version.",
+  "signals": [
+    {"signal_type": "typosquat-suspected", "signal_grade": "behavioral-high",
+     "similar_package": "lodash", "edit_distance": 1},
+    {"signal_type": "malicious-package-match", "signal_grade": "catalog-match",
+     "id": "MAL-2025-25502", "source": "osv-malicious"}
+  ]
+}
+```
+
+Legitimate installs pass through untouched. Network failures fail open with an explicit coverage warning — Guardian never leaves you unable to install.
+
+## Contents
+
+- [What Guardian Does](#what-guardian-does)
+- [How Guardian Compares](#how-guardian-compares)
+- [Install In Codex](#install-in-codex)
+- [Install In Claude Code](#install-in-claude-code)
+- [Test Your First Repo](#test-your-first-repo)
+- [Check Before Installing](#check-before-installing)
+- [Skills And When To Use Them](#skills-and-when-to-use-them)
+- [Automation](#automation)
+- [Intelligence Sources](#intelligence-sources)
+- [Efficient By Default](#efficient-by-default)
+- [More Documentation](#more-documentation)
+- [What Guardian Does Not Do](#what-guardian-does-not-do)
 
 ## What Guardian Does
 
+- Checks proposed packages before installation, including probable typosquats, published advisories, install behavior, and exact malicious-catalog matches.
 - Inventories npm, Python, Go, Rust, and Composer dependency evidence from manifests, lockfiles, and optional installed metadata.
 - Matches exact package versions against vulnerability, exploit-intelligence, and malicious-package sources.
 - Detects when a dependency newly gains install-time behavior, including npm lifecycle scripts and selected Python source-install evidence.
 - Detects unapproved npm lockfile hosts, same-version integrity drift, direct dependency URLs, and incomplete Python pin/hash hygiene without network access.
 - Reviews newly adopted registry versions for recent publication, maintainer drift, disappeared provenance, deprecation/yanking, and repository changes.
-- Checks proposed packages before installation, including probable typosquats, published advisories, install behavior, and exact malicious-catalog matches.
 - Separates direct runtime risk from transitive, vendored metadata, test-only, tooling-only, and isolated-environment noise.
 - Tracks scans over time so you can see new, resolved, changed, and unchanged findings.
 - Produces compact operator JSON and optional Markdown handoff reports for agents, maintainers, and reviewers.
@@ -22,19 +68,28 @@ Guardian is built for modern AI-assisted development, where projects can accumul
 
 Guardian does not edit dependency files, install project dependencies, or execute arbitrary project code during normal scans.
 
-## How Guardian Works
-
 ```text
 Project evidence
   -> read-only inventory
   -> normalized package versions
   -> advisory and exploit-intelligence matching
+  -> behavioral drift detection (install scripts, lockfile tamper, registry metadata)
   -> project-context corroboration
   -> prioritized findings
   -> operator summary, handoff report, and snapshot comparison
 ```
 
 Guardian is evidence-first. It should not tell an agent to upgrade a package unless the package version, advisory match, dependency context, and project evidence support that recommendation.
+
+## How Guardian Compares
+
+Guardian overlaps with existing tools but sits in a different spot: it is built for the moment an AI agent is about to change your dependency graph.
+
+- **`npm audit` / `pip-audit`**: single-ecosystem, advisory-only, stateless. Guardian is cross-ecosystem, adds malicious-package catalogs and exploit intelligence (KEV/EPSS), remembers previous scans so unchanged findings are not re-explained, and detects behavioral drift advisories have not caught up with yet.
+- **Dependabot / Renovate**: repo-hosted and PR-driven, reacting after dependencies change. Guardian runs locally, gates the install *before* it happens, and separates credible exposure from vendored-metadata and test-only noise instead of opening a PR for every advisory.
+- **Hosted supply-chain services**: powerful, but they are services — your dependency graph goes to someone else's cloud. Guardian is local-first with no telemetry, its scanner runtime is Python standard library only, and its state lives in a SQLite file you own. The only outbound traffic is to the documented public advisory and registry sources.
+
+If you already use those tools, Guardian complements them: it is the layer that sits inside your coding agent.
 
 ## Install In Codex
 
@@ -145,7 +200,9 @@ Use Sonnet with low or normal effort for routine scan summaries. Guardian does t
 
 ## Check Before Installing
 
-Guardian registers a bounded `PreToolUse` hook for common npm, pnpm, Yarn, pip, uv, and Poetry additions. You can also ask for the check explicitly before an install:
+Guardian registers a bounded `PreToolUse` hook that recognizes common npm, pnpm, Yarn, Bun, pip, Pipenv, uv, and Poetry install forms — including manager flags before the subcommand, versioned Python executables, npm aliases, package-execution commands (`npx`, `npm exec`, `pnpx`, `pnpm dlx`, `yarn dlx`, `bunx`, `bun x`), multiple packages per command, and bounded `sh`/`bash`/`zsh -c` wrappers.
+
+You can also ask for the check explicitly before an install:
 
 Codex:
 
@@ -155,7 +212,14 @@ Claude Code:
 
 > /guardian-security-scan:guardian-check-package Check `npm react@19.1.0` before I install it. Give me the verdict, strongest evidence, source coverage, and safe next action. Do not install it.
 
-Exact malicious-catalog matches block. Probable typosquats, known vulnerable versions, and opaque direct-source installs pause for review. Network failure remains fail-open with an explicit coverage warning. See [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md).
+How verdicts behave:
+
+- Exact malicious-catalog matches **block**.
+- Probable typosquats, known vulnerable versions, and opaque remote-source installs **pause for review**.
+- Local filesystem dependencies (for example `pip install -e .`) are **allowed** with an informational note.
+- Network failure remains **fail-open** with an explicit coverage warning.
+
+If Guardian pauses a legitimately similar package name, silence it permanently with `guardian policy accept-name <ecosystem> <name>`. To disable or tune the gate (including which signal grades hard-block), edit `preinstall_gate_enabled` and `preinstall_gate_block_grades` in `~/.guardian-security-scan/config.json`. Full details, false-positive guidance, and verdict semantics: [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md).
 
 ## Skills And When To Use Them
 
@@ -274,6 +338,8 @@ Guardian uses multiple sources because no single feed is complete:
 - npm and PyPI registry behavioral metadata for newly adopted versions
 - Bundled exact-match public malicious-package campaign catalogs
 
+Guardian verifies its own intelligence too: `guardian catalog verify` cross-checks every bundled catalog entry against OSV's malicious-package records and reports which entries are independently corroborated, and remote catalog refresh is fail-closed against a SHA-256 manifest pinned in the plugin.
+
 Guardian reports what configured sources currently know about package versions it can see. It cannot prove a project is safe from unknown zero-days.
 
 For source behavior, trust boundaries, and known limits, see [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md).
@@ -282,7 +348,7 @@ For source behavior, trust boundaries, and known limits, see [`docs/TRUST_MODEL.
 
 Guardian is designed to be lightweight for local agent workflows and scheduled scans:
 
-- The scanner runtime uses the Python standard library only.
+- The scanner runtime uses the Python standard library only (no pip dependencies). Source-usage analysis shells out to ripgrep (`rg`); when it is missing, Guardian says so and downgrades usage-based conclusions instead of guessing.
 - Normal reports are compact so agents read summaries instead of raw lockfiles.
 - Daily watch skips unchanged dependency inventories.
 - Unchanged daily-watch roots make zero registry-intelligence calls; standard scans skip registry enumeration on the first baseline.
