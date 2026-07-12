@@ -2,6 +2,17 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.2 - 2026-07-12
+
+### Fixed
+
+- Package-usage analysis now detects when ripgrep is not installed. Usage results report `scan_status: unavailable`, package-diet classifications downgrade to Review with an install-ripgrep explanation instead of labeling packages Unused, and diet reports carry a top-level `usage_scan` status.
+
+### Added
+
+- GitHub Actions release-check workflow running the full release gates on every push and pull request, with a portable `release_check.sh` that skips machine-specific validators and still runs the hook deny smoke test from the checkout.
+- README overhaul: real gate-deny demo, badges, table of contents, tool-comparison section, accurate pre-install hook coverage, and documented gate tuning plus `guardian policy accept-name`.
+
 ## 1.6.1 - 2026-07-12
 
 ### Fixed

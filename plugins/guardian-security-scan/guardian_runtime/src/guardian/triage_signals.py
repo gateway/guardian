@@ -160,6 +160,8 @@ def usage_summary(occurrences: list[dict]) -> list[dict]:
                 "hit_count": usage["hit_count"],
                 "hits": usage["hits"],
                 "by_kind": by_kind,
+                "scan_status": usage.get("scan_status", "ok"),
+                "scan_note": usage.get("scan_note"),
             }
         )
     return results
