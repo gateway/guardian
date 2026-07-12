@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in Guardian misbehaved (crash, wrong finding, broken scan)
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerabilities in Guardian itself:** do not file them here — see [SECURITY.md](../blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Guardian plugin version
+      description: From `plugins/guardian-security-scan/.claude-plugin/plugin.json` or your plugin manager.
+      placeholder: "1.6.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: harness
+    attributes:
+      label: Where did it run?
+      options:
+        - Claude Code
+        - Codex
+        - Direct CLI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you run, what did you expect, what did Guardian do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: operator-json
+    attributes:
+      label: Operator JSON or command output
+      description: Paste the relevant scan/check output (redact private repo paths if needed). This is usually the fastest route to a fix.
+      render: json
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python version
+      placeholder: "macOS 15.5, Python 3.12.4"
