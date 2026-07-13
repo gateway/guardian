@@ -239,6 +239,13 @@ How verdicts behave:
 - Local filesystem dependencies (for example `pip install -e .`) are **allowed** with an informational note.
 - Network failure remains **fail-open** with an explicit coverage warning.
 
+What Guardian knows at install time:
+
+- For a newly requested package, Guardian checks the package name and exact resolved version against local malicious-package catalogs, typo-similarity data, registry metadata, and live OSV advisory data within a small time budget.
+- If those sources already know the package/version is malicious or vulnerable, Guardian blocks or pauses before the install runs.
+- If no source has evidence yet, Guardian may allow the install. That is not a claim that the package is safe from unknown zero-days; it means Guardian did not find known evidence in the sources it could reach at that moment.
+- For packages you already have, Guardian learns about newly published advisories when you run a project scan or scheduled daily watch. There is no background daemon continuously checking your machine.
+
 If Guardian pauses a legitimately similar package name, silence it permanently with `guardian policy accept-name <ecosystem> <name>`. To disable or tune the gate (including which signal grades hard-block), edit `preinstall_gate_enabled` and `preinstall_gate_block_grades` in `~/.guardian-security-scan/config.json`. Full details, false-positive guidance, and verdict semantics: [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md).
 
 ### Under The Hood
@@ -247,16 +254,16 @@ Guardian is not an antivirus: there is no daemon, no background file scanning, a
 
 ```mermaid
 flowchart TD
-    A["Agent is about to run a Bash command"] --> B{"Guardian hook:<br/>is this a package install?"}
-    B -- "no&nbsp;&nbsp;(~0.1 s, exits silently)" --> Z["Command runs normally<br/><b>0 tokens added</b>"]
-    B -- yes --> C["Parse package specs<br/>npm · pnpm · Yarn · Bun · pip · Pipenv · uv · Poetry · npx/dlx"]
-    C --> D["<b>Local checks first</b> (no network)<br/>malicious catalogs · typosquat similarity · 24h verdict cache"]
-    D -- "exact malicious match" --> X["<b>DENY</b> — install blocked,<br/>agent reads the reason and corrects"]
-    D -- "no local hit" --> E["<b>Bounded live checks</b> (hard 3s budget)<br/>OSV advisories · registry install-script / release metadata"]
-    E -- "malicious · typosquat · known-vulnerable" --> X
-    E -- "suspicious, not blocking" --> W["<b>WARN</b> — install proceeds,<br/>agent sees ~2 lines of context"]
-    E -- clean --> V["<b>ALLOW</b> — silent, 0 tokens,<br/>verdict cached in SQLite"]
-    E -- "network down / budget hit" --> F["<b>fail open</b> — install proceeds<br/>with an explicit coverage warning"]
+    A["Agent is about to run a Bash command"] --> B{"Guardian hook:<br/>package install?"}
+    B -- "no (0.1s, exits silently)" --> Z["Command runs normally<br/>0 tokens added"]
+    B -- "yes" --> C["Parse package specs<br/>npm, pnpm, Yarn, Bun, pip, Pipenv, uv, Poetry, npx/dlx"]
+    C --> D["Local checks first, no network:<br/>malicious catalogs, typosquat similarity, 24h verdict cache"]
+    D -- "exact malicious match" --> X["DENY: install blocked,<br/>agent reads the reason and corrects"]
+    D -- "no local hit" --> E["Bounded live checks, hard 3s budget:<br/>OSV advisories, registry install-script and release metadata"]
+    E -- "malicious, typosquat, known-vulnerable" --> X
+    E -- "suspicious, not blocking" --> W["WARN: install proceeds,<br/>agent sees 2 lines of context"]
+    E -- "clean" --> V["ALLOW: silent, 0 tokens,<br/>verdict cached in SQLite"]
+    E -- "network down or budget hit" --> F["FAIL OPEN: install proceeds<br/>with an explicit coverage warning"]
 ```
 
 Measured on the shipped hook (Apple-silicon laptop; reproduce by piping a `PreToolUse` JSON event into `hooks/preinstall_gate.py` and timing it):
