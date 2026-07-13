@@ -1,8 +1,8 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "displayName": "Guardian Security Scan",
-  "description": "Guardian scans npm, Python, Go, Rust, and Composer package risk and lockfile integrity.",
+  "description": "Guardian scans npm, Python, Go, Rust, and Composer dependency risk and lockfile integrity, and gates npm and Python installs before they run.",
   "author": {
     "name": "Dreaming Computers",
     "url": "https://github.com/gateway"

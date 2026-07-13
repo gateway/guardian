@@ -2,6 +2,8 @@
 
 Guardian can review npm and PyPI packages before an AI coding agent installs them. The gate is local-first, bounded, cached, and implemented with the Python standard library.
 
+Ecosystem coverage: the gate intercepts npm and PyPI package additions only. Go, Rust, and Composer dependencies are covered by Guardian's scans, advisory matching, and lockfile drift detection, not by install interception.
+
 ## What It Checks
 
 For each proposed package, Guardian checks in this order:

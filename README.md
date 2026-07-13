@@ -1,6 +1,6 @@
 # Guardian
 
-**Local-first dependency security for AI coding agents.** Guardian gives Codex and Claude Code a read-only security workflow for npm, Python, Go, Rust, and Composer projects: it checks packages *before* they are installed, scans what is already there against advisory and malicious-package intelligence, watches for suspicious dependency behavior over time, and explains what actually matters without recommending pointless dependency churn.
+**Local-first dependency security for AI coding agents.** Guardian gives Codex and Claude Code a read-only security workflow for npm, Python, Go, Rust, and Composer projects: it checks npm and Python packages *before* they are installed, scans all five ecosystems against advisory and malicious-package intelligence, watches for suspicious dependency behavior over time, and explains what actually matters without recommending pointless dependency churn. See [Ecosystem Coverage](#ecosystem-coverage) for exactly which feature applies where.
 
 [![Release Check](https://github.com/gateway/guardian/actions/workflows/release-check.yml/badge.svg)](https://github.com/gateway/guardian/actions/workflows/release-check.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -40,6 +40,7 @@ Legitimate installs pass through untouched. Network failures fail open with an e
 ## Contents
 
 - [What Guardian Does](#what-guardian-does)
+- [Ecosystem Coverage](#ecosystem-coverage)
 - [How Guardian Compares](#how-guardian-compares)
 - [Install In Codex](#install-in-codex)
 - [Install In Claude Code](#install-in-claude-code)
@@ -80,6 +81,25 @@ Project evidence
 ```
 
 Guardian is evidence-first. It should not tell an agent to upgrade a package unless the package version, advisory match, dependency context, and project evidence support that recommendation.
+
+## Ecosystem Coverage
+
+Not every feature applies to every ecosystem. Guardian's rule is to say exactly what it checked, so here is the current matrix:
+
+| Capability | npm | PyPI | Go | Rust (crates.io) | Composer |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Inventory + advisory/malicious-package matching | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pre-install gate + `guardian-check-package` | ✅ | ✅ | — | — | — |
+| Typosquat / slopsquat detection | ✅ | ✅ | — | — | — |
+| Install-time behavior signals | ✅ lifecycle scripts | ✅ sdist / direct-URL | n/a¹ | — | — |
+| Same-version lockfile integrity drift | ✅ | hash/pin hygiene | ✅ | ✅ | ✅ |
+| Unapproved lockfile registry hosts | ✅ | — | — | — | — |
+| Registry behavioral metadata (release age, maintainers, provenance) | ✅ | ✅ | — | — | — |
+| Package diet / vendor review | ✅ | — | — | — | — |
+
+¹ Go module fetches do not execute code at install time, so there is no install-script surface to watch.
+
+In short: Go, Rust, and Composer get read-only inventory, exact-version advisory and malicious-package matching (via OSV), direct-versus-transitive context, and lockfile checksum drift detection. The pre-install gate, typosquat checks, and registry behavioral intelligence currently cover npm and PyPI package additions only — `go get` and `cargo add` are not intercepted yet. Rust is the priority for gate expansion because `build.rs` and proc-macros execute arbitrary code at build time, the direct analog of npm lifecycle scripts.
 
 ## How Guardian Compares
 
@@ -200,7 +220,7 @@ Use Sonnet with low or normal effort for routine scan summaries. Guardian does t
 
 ## Check Before Installing
 
-Guardian registers a bounded `PreToolUse` hook that recognizes common npm, pnpm, Yarn, Bun, pip, Pipenv, uv, and Poetry install forms — including manager flags before the subcommand, versioned Python executables, npm aliases, package-execution commands (`npx`, `npm exec`, `pnpx`, `pnpm dlx`, `yarn dlx`, `bunx`, `bun x`), multiple packages per command, and bounded `sh`/`bash`/`zsh -c` wrappers.
+The pre-install gate covers npm and PyPI package additions ([other ecosystems](#ecosystem-coverage) are covered by scans and advisory matching, not install interception). Guardian registers a bounded `PreToolUse` hook that recognizes common npm, pnpm, Yarn, Bun, pip, Pipenv, uv, and Poetry install forms — including manager flags before the subcommand, versioned Python executables, npm aliases, package-execution commands (`npx`, `npm exec`, `pnpx`, `pnpm dlx`, `yarn dlx`, `bunx`, `bun x`), multiple packages per command, and bounded `sh`/`bash`/`zsh -c` wrappers.
 
 You can also ask for the check explicitly before an install:
 
