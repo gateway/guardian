@@ -241,6 +241,35 @@ How verdicts behave:
 
 If Guardian pauses a legitimately similar package name, silence it permanently with `guardian policy accept-name <ecosystem> <name>`. To disable or tune the gate (including which signal grades hard-block), edit `preinstall_gate_enabled` and `preinstall_gate_block_grades` in `~/.guardian-security-scan/config.json`. Full details, false-positive guidance, and verdict semantics: [`docs/PREINSTALL_GATE.md`](docs/PREINSTALL_GATE.md).
 
+### Under The Hood
+
+Guardian is not an antivirus: there is no daemon, no background file scanning, and no network chatter while you work. It is a checkpoint that fires only at the moment your agent is about to run a command, using the harness's own `PreToolUse` hook mechanism:
+
+```mermaid
+flowchart TD
+    A["Agent is about to run a Bash command"] --> B{"Guardian hook:<br/>is this a package install?"}
+    B -- "no&nbsp;&nbsp;(~0.1 s, exits silently)" --> Z["Command runs normally<br/><b>0 tokens added</b>"]
+    B -- yes --> C["Parse package specs<br/>npm · pnpm · Yarn · Bun · pip · Pipenv · uv · Poetry · npx/dlx"]
+    C --> D["<b>Local checks first</b> (no network)<br/>malicious catalogs · typosquat similarity · 24h verdict cache"]
+    D -- "exact malicious match" --> X["<b>DENY</b> — install blocked,<br/>agent reads the reason and corrects"]
+    D -- "no local hit" --> E["<b>Bounded live checks</b> (hard 3s budget)<br/>OSV advisories · registry install-script / release metadata"]
+    E -- "malicious · typosquat · known-vulnerable" --> X
+    E -- "suspicious, not blocking" --> W["<b>WARN</b> — install proceeds,<br/>agent sees ~2 lines of context"]
+    E -- clean --> V["<b>ALLOW</b> — silent, 0 tokens,<br/>verdict cached in SQLite"]
+    E -- "network down / budget hit" --> F["<b>fail open</b> — install proceeds<br/>with an explicit coverage warning"]
+```
+
+Measured on the shipped hook (Apple-silicon laptop; reproduce by piping a `PreToolUse` JSON event into `hooks/preinstall_gate.py` and timing it):
+
+| Path | Added latency | Tokens into agent context |
+|---|---|---|
+| Any non-install command | ~0.1 s | 0 |
+| Clean install, first check (live OSV + registry) | ~1.6 s | 0 |
+| Clean install, repeat (SQLite cache) | ~0.09 s | 0 |
+| Deny / warn | — | ~75 (capped at 5 packages per message) |
+
+The token math is structural, not tuned: the hook runs as a local process outside the model, so the only time it adds anything to your context is when it has something to say. A deny costs about two lines — the hallucinated-package debugging session it replaces costs a lot more.
+
 ## Skills And When To Use Them
 
 Skill calls are slightly different by harness:
