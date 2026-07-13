@@ -18,6 +18,34 @@ The daily watch workflow is designed to answer:
 - Did a previous finding resolve?
 - Did only interpretation/metadata change while package evidence stayed the same?
 
+## Schedule A Morning Watch
+
+Claude Code and Codex both support scheduled or recurring tasks (for example Claude Code's `/schedule` routines, or your harness's equivalent automation feature). Guardian's daily watch is designed to be the thing you put in one: the scan work happens locally in the Guardian runtime, and the model only reads a compact JSON summary — so a scheduled morning run is cheap in tokens and fine on a small, fast model at low effort.
+
+Schedule this prompt (adjust roots and cadence to taste):
+
+Claude Code:
+
+> /guardian-security-scan:guardian-daily-watch Run Guardian's daily watch across my development roots. Skip unchanged repos, refresh advisory data for known packages, and report only what changed since yesterday: new or resolved findings, dependency-file changes, new behavioral signals (install scripts, lockfile drift, suspicious new versions), and anything rated act-now or fix-this-week. If a repo shows a high-priority change, run a full guardian-project-scan on that repo only and include the evidence. If nothing changed, say so in one line.
+
+Codex:
+
+> $guardian-security-scan:guardian-daily-watch Run Guardian's daily watch across my development roots. Skip unchanged repos, refresh advisory data for known packages, and report only what changed since yesterday: new or resolved findings, dependency-file changes, new behavioral signals (install scripts, lockfile drift, suspicious new versions), and anything rated act-now or fix-this-week. If a repo shows a high-priority change, run a full guardian-project-scan on that repo only and include the evidence. If nothing changed, say so in one line.
+
+Why this stays cheap:
+
+- Dependency manifests and lockfiles are hashed first; unchanged repos are skipped before any inventory or network work.
+- Unchanged roots make zero registry-intelligence calls.
+- Snapshot comparison means the model summarizes deltas, not the full finding list, every morning.
+- The escalation clause means expensive deep scans only run when the watch actually found something.
+
+If you prefer running outside an agent entirely, the same check works headless from cron or launchd, since the runtime is standard-library Python with no environment to activate:
+
+```bash
+# crontab: weekday mornings at 7:30
+30 7 * * 1-5 /path/to/guardian-plugin/scripts/guardian daily-watch --root "$HOME/dev/repo1" --root "$HOME/dev/repo2" --refresh-advisories --json >> "$HOME/.guardian-security-scan/daily-watch.log" 2>&1
+```
+
 ## Local Scan State
 
 Guardian keeps runtime state outside the plugin by default:
