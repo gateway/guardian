@@ -2,6 +2,12 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.3 - 2026-07-12
+
+### Changed
+
+- Documentation and plugin descriptions now state per-ecosystem coverage explicitly: a README ecosystem-coverage matrix clarifies that the pre-install gate, typosquat detection, and registry behavioral intelligence cover npm and PyPI, while Go, Rust, and Composer receive inventory, advisory/malicious matching, and lockfile checksum drift detection.
+
 ## 1.6.2 - 2026-07-12
 
 ### Fixed
