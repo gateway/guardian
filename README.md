@@ -344,6 +344,8 @@ That state lets Guardian compare scans across time and answer practical question
 
 For morning checks, use `guardian-daily-watch`. It keeps scans cheap by hashing dependency manifests and lockfiles first, then only re-inventories repos whose dependency files changed. Add live advisory refresh when you want to check known packages against newly published data.
 
+To run it automatically every morning, put the daily-watch prompt into your harness's scheduler (Claude Code `/schedule` routines or the Codex equivalent) — [`docs/AUTOMATION.md`](docs/AUTOMATION.md) has a copy-paste prompt and a headless cron alternative. The scan work happens locally and the model only summarizes a compact delta, so scheduled runs are token-cheap and fine on a small model.
+
 ## Intelligence Sources
 
 Guardian uses multiple sources because no single feed is complete:
