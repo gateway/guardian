@@ -13,7 +13,7 @@ For each proposed package, Guardian checks in this order:
 3. Registry metadata for the concrete version, including npm lifecycle scripts or a PyPI release that only ships a source distribution.
 4. One bounded OSV query for the concrete package version.
 
-Complete results for exact requested versions are cached in local SQLite for 24 hours by default. Repeat exact-version checks normally avoid network calls. Versionless requests always resolve the registry's current `latest` version and do not reuse a cached verdict or cached mutable `latest` response.
+Complete results for exact requested versions are cached in local SQLite for 24 hours by default. Incomplete checks (timeout, network failure, exhausted budget) are never cached: the install fails open with a warning and the next attempt runs the live checks again. One consequence of the 24-hour allow cache: an advisory published within hours of a clean exact-version check will not affect a repeat install of that same version until the cache expires — the scheduled daily watch covers that window for packages already in your projects. Repeat exact-version checks normally avoid network calls. Versionless requests always resolve the registry's current `latest` version and do not reuse a cached verdict or cached mutable `latest` response.
 
 When a prior project scan already cached fresh exact-version registry intelligence, the gate reuses it before making a registry request. New registry observations invalidate older package verdicts for the same exact version.
 

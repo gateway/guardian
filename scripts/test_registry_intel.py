@@ -229,6 +229,7 @@ def assert_daily_watch_zero_calls(config: GuardianConfig, root: Path) -> None:
             include_installed=False,
             include_ghsa=False,
             ghsa_max_packages=0,
+            refresh_advisories=False,
             include_registry_intel=True,
         )
         second = run_daily_watch(
@@ -239,6 +240,7 @@ def assert_daily_watch_zero_calls(config: GuardianConfig, root: Path) -> None:
             include_installed=False,
             include_ghsa=False,
             ghsa_max_packages=0,
+            refresh_advisories=False,
             include_registry_intel=True,
         )
     finally:

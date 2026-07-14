@@ -518,14 +518,14 @@ def assert_daily_watch_fingerprints(tmp: Path) -> None:
     shutil.copytree(tmp / "clean-npm", root)
     state = tmp / "state-daily-watch"
 
-    first = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    first = run_guardian_command(state, ["daily-watch", "--root", str(root), "--no-refresh-advisories"])
     if first["roots_inventory_count"] != 1 or first["roots_skipped_count"] != 0:
         raise AssertionError(f"first daily-watch should inventory baseline root: {first['roots']}")
     first_root = first["roots"][0]
     if first_root["reason"] != "dependency-files-changed":
         raise AssertionError(f"first daily-watch reason should be dependency-files-changed: {first_root}")
 
-    second = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    second = run_guardian_command(state, ["daily-watch", "--root", str(root), "--no-refresh-advisories"])
     if second["roots_inventory_count"] != 0 or second["roots_skipped_count"] != 1:
         raise AssertionError(f"second daily-watch should skip unchanged root: {second['roots']}")
     second_root = second["roots"][0]
@@ -536,7 +536,7 @@ def assert_daily_watch_fingerprints(tmp: Path) -> None:
 
     package_json = root / "package.json"
     package_json.write_text(package_json.read_text() + "\n")
-    third = run_guardian_command(state, ["daily-watch", "--root", str(root)])
+    third = run_guardian_command(state, ["daily-watch", "--root", str(root), "--no-refresh-advisories"])
     if third["roots_inventory_count"] != 1 or third["roots_skipped_count"] != 0:
         raise AssertionError(f"third daily-watch should inventory changed root: {third['roots']}")
     third_state = third["roots"][0]["file_state"]
