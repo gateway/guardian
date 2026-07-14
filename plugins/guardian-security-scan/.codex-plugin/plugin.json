@@ -1,6 +1,6 @@
 {
   "name": "guardian-security-scan",
-  "version": "1.6.3+codex.20260713022844",
+  "version": "1.6.4+codex.20260714014856",
   "description": "Guardian scans npm, Python, Go, Rust, and Composer dependency risk and lockfile integrity, and gates npm and Python installs before they run.",
   "author": {
     "name": "Dreaming Computers",

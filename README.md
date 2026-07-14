@@ -237,7 +237,7 @@ How verdicts behave:
 - Exact malicious-catalog matches **block**.
 - Probable typosquats, known vulnerable versions, and opaque remote-source installs **pause for review**.
 - Local filesystem dependencies (for example `pip install -e .`) are **allowed** with an informational note.
-- Network failure remains **fail-open** with an explicit coverage warning.
+- Network failure remains **fail-open** with an explicit coverage warning — and an incomplete check is never cached as a clean verdict, so the next attempt re-checks instead of trusting a blind spot.
 
 What Guardian knows at install time:
 
@@ -380,6 +380,8 @@ That state lets Guardian compare scans across time and answer practical question
 
 For morning checks, use `guardian-daily-watch`. It keeps scans cheap by hashing dependency manifests and lockfiles first, then only re-inventories repos whose dependency files changed. Add live advisory refresh when you want to check known packages against newly published data.
 
+The daily watch refreshes advisory data for your existing packages by default, so a CVE published overnight against a dependency you already had surfaces the next morning — Guardian has no background daemon, so coverage is as fresh as your last scan.
+
 To run it automatically every morning, put the daily-watch prompt into your harness's scheduler (Claude Code `/schedule` routines or the Codex equivalent) — [`docs/AUTOMATION.md`](docs/AUTOMATION.md) has a copy-paste prompt and a headless cron alternative. The scan work happens locally and the model only summarizes a compact delta, so scheduled runs are token-cheap and fine on a small model.
 
 ## Intelligence Sources
@@ -436,4 +438,5 @@ Default scans are intentionally conservative. Deeper live-source checks, install
 - It does not execute arbitrary project code during normal scans.
 - It does not automatically edit or upgrade dependencies.
 - It does not treat every transitive or vendored metadata finding as a production incident.
+- It does not run as a background daemon or watch advisory feeds in real time. Coverage is as fresh as your last scan; the scheduled daily watch exists to keep that gap to one morning.
 - It does not replace human review for high-impact security fixes.

@@ -2,6 +2,13 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.4 - 2026-07-13
+
+### Changed
+
+- Daily watch now refreshes OSV/local-catalog advisories for known packages by default, so advisories published overnight against unchanged dependencies surface the next morning. Use `--no-refresh-advisories` for the previous cached-findings-only behavior.
+- Docs state the freshness model plainly: no background daemon, coverage is as fresh as the last scan, incomplete pre-install checks are never cached as clean, and the 24-hour exact-version allow cache window is documented.
+
 ## 1.6.3 - 2026-07-12
 
 ### Changed

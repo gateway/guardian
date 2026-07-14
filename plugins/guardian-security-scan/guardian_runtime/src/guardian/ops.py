@@ -696,7 +696,7 @@ def run_daily_watch(
     include_installed: bool,
     include_ghsa: bool,
     ghsa_max_packages: int,
-    refresh_advisories: bool = False,
+    refresh_advisories: bool = True,
     include_threat_intel: bool = False,
     include_openssf_malicious: bool = False,
     include_registry_intel: bool = False,
@@ -819,7 +819,7 @@ def run_daily_watch(
         }
         refresh = {
             "status": "skipped",
-            "skipped_reason": "daily-watch default uses cached findings; pass --refresh-advisories for live OSV/local-catalog refresh",
+            "skipped_reason": "advisory refresh disabled via --no-refresh-advisories; comparing cached findings only",
             "packages_checked": 0,
             "package_rows_considered": len(package_rows),
             "unique_versions_available": len(unique_versions),

@@ -46,7 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
     daily_watch.add_argument("--root", action="append", default=[])
     daily_watch.add_argument("--ecosystem", action="append", default=[])
     daily_watch.add_argument("--include-installed", action="store_true")
-    daily_watch.add_argument("--refresh-advisories", action="store_true")
+    daily_watch.add_argument(
+        "--refresh-advisories",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="refresh OSV/local-catalog advisories for known packages (default: on; use --no-refresh-advisories for cached-findings-only mode)",
+    )
     daily_watch.add_argument("--include-ghsa", action="store_true")
     daily_watch.add_argument("--ghsa-max-packages", type=int, default=50)
     daily_watch.add_argument("--live-enrichment", action="store_true")

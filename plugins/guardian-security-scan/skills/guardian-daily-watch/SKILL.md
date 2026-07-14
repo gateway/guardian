@@ -25,7 +25,7 @@ scripts/guardian daily-watch --root "<repo-root>" --json
 For multiple roots, repeat `--root`.
 
 3. Use live refresh only when needed.
-Default `daily-watch` is intentionally fast: it fingerprints dependency manifests/lockfiles, skips unchanged inventory, and snapshots cached findings. Add `--refresh-advisories` when the user explicitly wants live OSV/local advisory refresh. Add `--live-enrichment` only for slower KEV, EPSS, and NVD enrichment.
+Default `daily-watch` fingerprints dependency manifests/lockfiles, skips unchanged inventory, and refreshes OSV/local-catalog advisories for known packages — so an advisory published overnight against an unchanged dependency still surfaces. Pass `--no-refresh-advisories` only when the user wants the cheapest cached-findings-only mode (for example offline). Add `--live-enrichment` only for slower KEV, EPSS, and NVD enrichment.
 
 4. Escalate selectively.
 If daily-watch reports changed dependency files, new evidence, or a high-priority cached finding, run `guardian-project-scan` for that specific repo. Do not deep-scan every repo by default.

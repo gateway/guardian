@@ -43,7 +43,7 @@ If you prefer running outside an agent entirely, the same check works headless f
 
 ```bash
 # crontab: weekday mornings at 7:30
-30 7 * * 1-5 /path/to/guardian-plugin/scripts/guardian daily-watch --root "$HOME/dev/repo1" --root "$HOME/dev/repo2" --refresh-advisories --json >> "$HOME/.guardian-security-scan/daily-watch.log" 2>&1
+30 7 * * 1-5 /path/to/guardian-plugin/scripts/guardian daily-watch --root "$HOME/dev/repo1" --root "$HOME/dev/repo2" --json >> "$HOME/.guardian-security-scan/daily-watch.log" 2>&1
 ```
 
 ## Local Scan State
@@ -66,16 +66,18 @@ export GUARDIAN_STATE_DIR=/path/to/guardian-state
 
 Guardian does not rely only on a static bundled database. A normal project scan re-inventories visible package evidence, checks local exact-match catalogs, queries OSV for visible package versions, and enriches matching CVEs when configured source data is available.
 
-Use these options when you want stronger daily freshness:
+Advisory refresh is on by default: every daily watch re-checks OSV and local catalogs for the packages already in your inventory, so a CVE or malicious-package record published overnight against an unchanged dependency still surfaces the next morning. Guardian has no background daemon — a scan only knows what was published as of the moment it runs, which is exactly why the daily watch exists.
+
+For the cheapest cached-findings-only pass (for example offline), disable the refresh explicitly:
 
 ```bash
-guardian daily-watch --root /path/to/repo --refresh-advisories --json
+guardian daily-watch --root /path/to/repo --no-refresh-advisories --json
 ```
 
 Add live enrichment only when you need slower CVE context such as KEV, EPSS, or NVD detail:
 
 ```bash
-guardian daily-watch --root /path/to/repo --refresh-advisories --live-enrichment --json
+guardian daily-watch --root /path/to/repo --live-enrichment --json
 ```
 
 Add changed-package registry intelligence without enabling broader live enrichment:
