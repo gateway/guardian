@@ -2,6 +2,12 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.6 - 2026-07-29
+
+### Fixed
+
+- Claude Code plugin installs no longer declare the standard `hooks/hooks.json` file in the manifest, avoiding duplicate-hook load failures because Claude auto-loads that standard hook file.
+
 ## 1.6.5 - 2026-07-29
 
 ### Fixed

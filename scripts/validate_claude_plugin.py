@@ -85,8 +85,10 @@ def validate_plugin_manifest(entry: dict[str, Any]) -> dict[str, Any]:
         fail("plugin repository must point at the public Guardian repository")
     if manifest.get("skills") != "./skills/":
         fail("plugin manifest should load the bundled ./skills/ directory")
-    if manifest.get("hooks") != "./hooks/hooks.json":
-        fail("plugin manifest should load the bundled PreToolUse hook")
+    if "hooks" in manifest:
+        fail("Claude auto-loads hooks/hooks.json; manifest.hooks must not duplicate the standard hook file")
+    if not HOOKS_FILE.is_file():
+        fail("plugin bundle must include hooks/hooks.json for Claude's standard hook loader")
     author = manifest.get("author")
     if not isinstance(author, dict) or author.get("name") != "Dreaming Computers":
         fail("plugin author must be Dreaming Computers")
