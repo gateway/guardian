@@ -11,6 +11,8 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import redirect_stdout
+from io import StringIO
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -38,6 +40,7 @@ from guardian.planner import highest_fixed_boundary  # noqa: E402
 from guardian.repo_scout import _finding_is_high_signal  # noqa: E402
 from guardian.reporting_common import advisory_details, package_evidence_context  # noqa: E402
 from guardian.reporting_issues import _apply_advisory_context  # noqa: E402
+from guardian.cli_output import print_project_scan_summary  # noqa: E402
 from guardian.config import GuardianConfig  # noqa: E402
 from guardian.advisories import refresh_findings  # noqa: E402
 from guardian.db import Database  # noqa: E402
@@ -242,6 +245,85 @@ def assert_install_script_drift(tmp: Path) -> None:
     repeated = run_guardian(root, state)
     if repeated.get("behavioral_signals"):
         raise AssertionError(f"unchanged repeat scan re-alerted: {repeated['behavioral_signals']}")
+
+
+def assert_behavioral_renderer_handles_info_signals() -> None:
+    """Postureless info signals must never make a completed scan look failed."""
+
+    payload = {
+        "operator_view": {"priority_headline": "No open package issues detected; behavioral: 0 fix this week, 0 watch, 1 info"},
+        "root_path": "/tmp/guardian-renderer-fixture",
+        "elapsed_seconds": 0.01,
+        "refresh": {"packages_checked": 1},
+        "behavioral_signals": [
+            {
+                "signal_type": "new-dep-with-install-script",
+                "signal_grade": "info",
+                "posture": None,
+                "signal_state": "new-event",
+                "ecosystem": "npm",
+                "package_name": "esbuild",
+                "normalized_name": "esbuild",
+                "version": "1.0.0",
+                "evidence_source": "package-lock",
+            }
+        ],
+        "operator_report_path": "/tmp/operator.json",
+        "comparison": {"message": "Only one snapshot exists for this root, so there is nothing to compare yet."},
+    }
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        print_project_scan_summary(payload)
+    rendered = stdout.getvalue()
+    if "behavioral info: esbuild@1.0.0 (new-dep-with-install-script, new-event)" not in rendered:
+        raise AssertionError(f"postureless behavioral signal rendered unexpectedly: {rendered}")
+
+
+def assert_typosquat_signal_remains_active(tmp: Path) -> None:
+    """Suspicious package names should remain visible after the first observation."""
+
+    root = tmp / "active-typosquat"
+    root.mkdir()
+    lockfile = {
+        "name": "active-typosquat",
+        "version": "1.0.0",
+        "lockfileVersion": 3,
+        "requires": True,
+        "packages": {
+            "": {
+                "name": "active-typosquat",
+                "version": "1.0.0",
+                "dependencies": {"compare-version": "1.0.0"},
+            },
+            "node_modules/compare-version": {
+                "version": "1.0.0",
+                "resolved": "https://registry.npmjs.org/compare-version/-/compare-version-1.0.0.tgz",
+                "integrity": "sha512-fixture",
+            },
+        },
+        "dependencies": {
+            "compare-version": {
+                "version": "1.0.0",
+                "resolved": "https://registry.npmjs.org/compare-version/-/compare-version-1.0.0.tgz",
+                "integrity": "sha512-fixture",
+            }
+        },
+    }
+    (root / "package-lock.json").write_text(json.dumps(lockfile, indent=2) + "\n")
+    state = tmp / "state-active-typosquat"
+    first = run_guardian(root, state, mode="standard")
+    second = run_guardian(root, state, mode="standard")
+    for label, payload in {"first": first, "second": second}.items():
+        signals = payload.get("behavioral_signals") or []
+        matched = [
+            signal
+            for signal in signals
+            if signal.get("package_name") == "compare-version"
+            and signal.get("signal_type") == "typosquat-suspected"
+            and signal.get("signal_state") == "active"
+        ]
+        if not matched:
+            raise AssertionError(f"{label} scan did not keep compare-version active: {signals}")
 
 
 def assert_unknown_lockfile_script_state(tmp: Path) -> None:
@@ -747,6 +829,8 @@ def main() -> int:
         assert_uv_lock_fixture(tmp)
         assert_requirements_fixture(tmp)
         assert_install_script_drift(tmp)
+        assert_behavioral_renderer_handles_info_signals()
+        assert_typosquat_signal_remains_active(tmp)
         assert_unknown_lockfile_script_state(tmp)
         assert_signal_grades()
         assert_http_client_hardening(tmp)

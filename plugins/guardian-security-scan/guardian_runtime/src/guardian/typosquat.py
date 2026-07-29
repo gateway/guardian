@@ -129,25 +129,27 @@ def detect_typosquat(
     ]
 
 
-def detect_new_package_typosquats(
-    db: Database,
-    root_path: str,
-    run_ids: list[int],
-) -> list[dict]:
-    """Check only package names introduced by the current inventory runs."""
+def detect_current_package_typosquats(db: Database, root_path: str) -> list[dict]:
+    """Keep suspicious current package names visible until removed or accepted."""
 
     started = time.perf_counter()
-    rows = db.new_package_names_for_runs(root_path, run_ids)
+    seen: dict[tuple[str, str], str] = {}
+    for row in db.current_packages_for_root(root_path):
+        ecosystem = row["ecosystem"]
+        if ecosystem not in {"npm", "pypi"}:
+            continue
+        normalized = row["normalized_name"]
+        seen.setdefault((ecosystem, normalized), row["package_name"])
     signals = [
         signal
-        for row in rows
-        if row["ecosystem"] in {"npm", "pypi"}
-        for signal in detect_typosquat(row["ecosystem"], row["package_name"], db=db)
+        for (ecosystem, _normalized), package_name in seen.items()
+        for signal in detect_typosquat(ecosystem, package_name, db=db)
     ]
     elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
     for signal in signals:
         signal["detector_elapsed_ms"] = elapsed_ms
-        signal["new_package_names_checked"] = len(rows)
+        signal["current_package_names_checked"] = len(seen)
+        signal["signal_state"] = "active"
     return sorted(signals, key=lambda item: (item["posture_rank"], item["package_name"].lower()))
 
 

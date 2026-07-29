@@ -17,6 +17,7 @@ from .reporting_common import (
     operator_recommendations,
     package_evidence_context,
 )
+from .signals import signal_display_posture, signal_operator_posture
 from .reporting_core import triage_report
 from .reporting_snapshots import compare_triage_snapshots
 from .triage import hygiene_report as build_hygiene_report
@@ -374,7 +375,7 @@ def _build_clean_handoff_markdown(
     lines.append("")
     lines.append("## Recommended Next Steps")
     lines.append("")
-    if any(item.get("posture") == "fix_this_week" for item in behavioral_signals):
+    if any(signal_operator_posture(item) == "fix_this_week" for item in behavioral_signals):
         lines.append("1. Review the high-signal dependency behavior change before accepting the update.")
     else:
         lines.append("1. No immediate package remediation needed.")
@@ -403,14 +404,17 @@ def _append_behavioral_signals(lines: list[str], signals: list[dict]) -> None:
         lines.append("")
         return
     for signal in signals:
-        identity = signal["package_name"] + (f"@{signal['version']}" if signal.get("version") else "")
+        package_name = signal.get("package_name") or signal.get("normalized_name") or "unknown-package"
+        identity = package_name + (f"@{signal['version']}" if signal.get("version") else "")
         lines.append(
-            f"### {signal['posture'].replace('_', ' ').title()}: "
+            f"### {signal_display_posture(signal).title()}: "
             f"{identity}"
         )
         lines.append("")
         lines.append(f"- Signal: `{signal['signal_type']}`")
         lines.append(f"- Evidence grade: `{signal['signal_grade']}`")
+        if signal.get("signal_state"):
+            lines.append(f"- Signal state: `{signal['signal_state']}`")
         lines.append(f"- Evidence source: `{signal['evidence_source']}`")
         if signal.get("previous_version"):
             lines.append(f"- Previous observed version: `{signal['previous_version']}`")

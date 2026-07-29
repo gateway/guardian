@@ -19,6 +19,7 @@ from .reporting_common import (
 )
 from .reporting_core import triage_report
 from .reporting_snapshots import compare_triage_snapshots
+from .signals import signal_operator_posture
 from .util import slugify, utc_now, write_json
 
 
@@ -102,9 +103,9 @@ def build_operator_view(
         "changed_count": len(comparison.get("changed", [])),
         "unchanged_count": comparison.get("unchanged_count"),
     }
-    behavioral_fix = sum(1 for item in behavioral_signals if item.get("posture") == "fix_this_week")
-    behavioral_watch = sum(1 for item in behavioral_signals if item.get("posture") == "watch")
-    behavioral_info = sum(1 for item in behavioral_signals if item.get("posture") == "info")
+    behavioral_fix = sum(1 for item in behavioral_signals if signal_operator_posture(item) == "fix_this_week")
+    behavioral_watch = sum(1 for item in behavioral_signals if signal_operator_posture(item) == "watch")
+    behavioral_info = sum(1 for item in behavioral_signals if signal_operator_posture(item) == "info")
     priority_headline = triage["headline"]
     if behavioral_signals:
         priority_headline += (

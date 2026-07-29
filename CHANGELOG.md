@@ -2,6 +2,17 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.6.5 - 2026-07-29
+
+### Fixed
+
+- Human-readable scan output no longer crashes when behavioral evidence is informational and has no remediation posture.
+- Suspicious package-name findings such as typosquat candidates remain visible on repeated unchanged scans until the package is removed or explicitly accepted.
+
+### Verified
+
+- Release fixtures now cover postureless behavioral rendering and consecutive-scan active typosquat reporting.
+
 ## 1.6.4 - 2026-07-13
 
 ### Changed

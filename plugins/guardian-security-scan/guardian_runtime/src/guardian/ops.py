@@ -25,6 +25,7 @@ from .reporting import (
 )
 from .remediation import sync_remediation_lifecycle
 from .scan_summary import build_compact_operator_view
+from .signals import signal_operator_posture
 from .source_contract import live_source_contract, threat_intel_source_contract
 from .threat_intel import ensure_default_threat_intel_sources, ingest_threat_intel
 from .util import utc_now, write_json
@@ -263,13 +264,15 @@ def run_project_scan(
             )
             operator_view["behavioral_signals"] = behavioral_signals
             operator_view["behavioral_signal_counts"] = {
-                "fix_this_week": sum(1 for item in behavioral_signals if item.get("posture") == "fix_this_week"),
-                "watch": sum(1 for item in behavioral_signals if item.get("posture") == "watch"),
+                "fix_this_week": sum(1 for item in behavioral_signals if signal_operator_posture(item) == "fix_this_week"),
+                "watch": sum(1 for item in behavioral_signals if signal_operator_posture(item) == "watch"),
+                "info": sum(1 for item in behavioral_signals if signal_operator_posture(item) == "info"),
             }
             if behavioral_signals:
                 counts = operator_view["behavioral_signal_counts"]
                 operator_view["priority_headline"] += (
-                    f"; behavioral: {counts['fix_this_week']} fix this week, {counts['watch']} watch"
+                    f"; behavioral: {counts['fix_this_week']} fix this week, "
+                    f"{counts['watch']} watch, {counts['info']} info"
                 )
             operator_report_path = run_phase(
                 "compact-operator-report",

@@ -37,3 +37,21 @@ def grade_to_posture(grade: SignalGrade | str) -> str | None:
     if normalized is SignalGrade.BEHAVIORAL_WATCH:
         return "watch"
     return None
+
+
+def signal_operator_posture(signal: dict) -> str | None:
+    """Return the operator bucket for a signal, including non-actionable info."""
+
+    posture = signal.get("posture")
+    if posture:
+        return str(posture)
+    if signal.get("signal_grade") == SignalGrade.INFO.value:
+        return "info"
+    return None
+
+
+def signal_display_posture(signal: dict) -> str:
+    """Format a signal posture for human output without assuming it is actionable."""
+
+    label = signal_operator_posture(signal) or signal.get("signal_grade") or "signal"
+    return str(label).replace("_", " ").replace("-", " ")

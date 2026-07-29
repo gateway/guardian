@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .signals import signal_display_posture
+
 
 def print_project_scan_summary(payload: dict) -> None:
     operator = payload["operator_view"]
@@ -10,10 +12,12 @@ def print_project_scan_summary(payload: dict) -> None:
     print(f"elapsed: {payload['elapsed_seconds']}s")
     print(f"packages checked: {payload['refresh']['packages_checked']}")
     for item in payload.get("behavioral_signals", []):
-        identity = item["package_name"] + (f"@{item['version']}" if item.get("version") else "")
+        package_name = item.get("package_name") or item.get("normalized_name") or "unknown-package"
+        identity = package_name + (f"@{item['version']}" if item.get("version") else "")
+        state = f", {item['signal_state']}" if item.get("signal_state") else ""
         print(
-            f"behavioral {item['posture'].replace('_', ' ')}: "
-            f"{identity} ({item['signal_type']})"
+            f"behavioral {signal_display_posture(item)}: "
+            f"{identity} ({item.get('signal_type') or 'signal'}{state})"
         )
     scan_policy = payload.get("scan_policy") or {}
     if scan_policy.get("large_repo_mode"):

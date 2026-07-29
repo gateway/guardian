@@ -25,7 +25,7 @@ from guardian.config import GuardianConfig  # noqa: E402
 from guardian.db import Database  # noqa: E402
 from guardian.install_command import extract_install_requests  # noqa: E402
 from guardian.preinstall_hook import evaluate_install_command, hook_output  # noqa: E402
-from guardian.typosquat import detect_new_package_typosquats, detect_typosquat  # noqa: E402
+from guardian.typosquat import detect_current_package_typosquats, detect_typosquat  # noqa: E402
 from guardian.util import normalize_package_name  # noqa: E402
 
 
@@ -175,7 +175,7 @@ def assert_command_parser() -> None:
 
 
 def assert_typosquat_state(db: Database, root: str) -> None:
-    """A newly introduced typo should signal once and honor accept-name policy."""
+    """A suspicious package name should stay active and honor accept-name policy."""
 
     for ecosystem, typo, target in (
         ("npm", "lodahs", "lodash"),
@@ -193,17 +193,30 @@ def assert_typosquat_state(db: Database, root: str) -> None:
         if detect_typosquat("npm", exact, db=db):
             raise AssertionError(f"exact popular package should not be a typo signal: {exact}")
     record = {
-        "ecosystem": "npm", "package_name": "lodahs", "normalized_name": "lodahs",
+        "ecosystem": "npm", "package_name": "is-nubmer", "normalized_name": "is-nubmer",
         "version": "1.0.0", "source_file": "package-lock.json", "source_type": "npm-lockfile",
     }
     first = db.start_inventory_run(root, "default", "test", "")
     db.insert_inventory_packages(first, [record])
-    if len(detect_new_package_typosquats(db, root, [first])) != 1:
-        raise AssertionError("first-seen package typo did not produce exactly one signal")
+    if len(detect_current_package_typosquats(db, root)) != 1:
+        raise AssertionError("current package typo did not produce exactly one active signal")
     second = db.start_inventory_run(root, "default", "test", "")
     db.insert_inventory_packages(second, [record])
-    if detect_new_package_typosquats(db, root, [second]):
-        raise AssertionError("unchanged package typo repeated after its first snapshot")
+    if len(detect_current_package_typosquats(db, root)) != 1:
+        raise AssertionError("unchanged package typo should remain active while present")
+    db.add_policy_exception(
+        ecosystem="npm",
+        normalized_name=normalize_package_name("npm", "is-nubmer"),
+        version=None,
+        advisory_source=None,
+        canonical_key=None,
+        action="accept-name",
+        reason="fixture reviewed",
+        expires_at=None,
+        created_by="test",
+    )
+    if detect_current_package_typosquats(db, root):
+        raise AssertionError("accepted package typo should be silenced by policy")
 
 
 def assert_package_checks(config: GuardianConfig, db: Database) -> None:
