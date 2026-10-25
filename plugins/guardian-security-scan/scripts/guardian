@@ -6,4 +6,10 @@ export PYTHONPATH="$PLUGIN_ROOT/guardian_runtime/src${PYTHONPATH:+:$PYTHONPATH}"
 export GUARDIAN_STATE_DIR="${GUARDIAN_STATE_DIR:-$HOME/.guardian-security-scan}"
 export GUARDIAN_SEED_CATALOG_DIR="${GUARDIAN_SEED_CATALOG_DIR:-$PLUGIN_ROOT/data/local_catalogs}"
 
+if [[ "${1:-}" == "trust-audit" ]]; then
+  # Ignore project/user Python startup code and suppress bytecode writes.
+  exec /usr/bin/python3 -I -S -B -c \
+    'import sys; sys.path.insert(0, sys.argv.pop(1)); from guardian.cli import main; sys.exit(main())' \
+    "$PLUGIN_ROOT/guardian_runtime/src" "$@"
+fi
 exec /usr/bin/python3 -m guardian.cli "$@"

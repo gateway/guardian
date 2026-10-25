@@ -85,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "trust-audit":
+        from .trust_audit import run_cli
+
+        return run_cli(args)
     config = load_config()
     db = Database(config.db_path)
     db.initialize()
@@ -115,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
                 db,
                 root=root,
                 ecosystems=args.ecosystem or None,
+                excludes=args.exclude,
                 include_installed=mode_options["include_installed"],
                 include_ghsa=mode_options["include_ghsa"],
                 ghsa_max_packages=args.ghsa_max_packages,

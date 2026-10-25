@@ -176,9 +176,11 @@ def parse_pyproject_manifest(path: Path, root: Path) -> list[dict]:
     return records
 
 
-def parse_python_metadata(path: Path, root: Path) -> list[dict]:
+def parse_python_metadata(path: Path, root: Path, *, contents: dict[str, bytes] | None = None) -> list[dict]:
+    """Parse installed metadata, optionally from an already bounded file snapshot."""
     try:
-        text = _header_block(path)
+        text = (_header_block(path) if contents is None else
+                _metadata_header(contents[path.name].decode("utf-8", errors="replace")))
         metadata = Parser().parsestr(text)
     except Exception:
         return []
@@ -187,8 +189,12 @@ def parse_python_metadata(path: Path, root: Path) -> list[dict]:
     if not name or not version:
         return []
     source_type = "pypi-dist-info" if path.parent.name.endswith(".dist-info") else "pypi-egg-info"
-    installer = _read_sibling(path, "INSTALLER")
-    direct_url = _read_json_sibling(path, "direct_url.json")
+    if contents is None:
+        installer = _read_sibling(path, "INSTALLER")
+        direct_url = _read_json_sibling(path, "direct_url.json")
+    else:
+        installer = contents.get("INSTALLER", b"").decode("utf-8", errors="replace").strip()
+        direct_url = json.loads(contents["direct_url.json"]) if "direct_url.json" in contents else None
     direct_source_url = (direct_url or {}).get("url") if isinstance(direct_url, dict) else None
     sdist_install = _looks_like_sdist_url(direct_source_url)
     isolated = any(part in {".venv", "venv", "site-packages", "dist-packages"} for part in path.parts)
@@ -221,8 +227,12 @@ def parse_python_metadata(path: Path, root: Path) -> list[dict]:
 
 
 def _header_block(path: Path) -> str:
+    return _metadata_header(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def _metadata_header(text: str) -> str:
     lines = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in text.splitlines():
         if not line.strip():
             break
         lines.append(line)

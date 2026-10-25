@@ -135,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--threat-intel-severity-floor", default="high", choices=["unknown", "low", "medium", "high", "critical"])
     parser.add_argument("--handoff", action="store_true")
     parser.add_argument("--include-installed", action="store_true")
+    parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -142,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     scan_args = ["scan", str(working_root), "--mode", args.mode, "--output", "compact"]
     if args.include_installed:
         scan_args.append("--include-installed")
+    for name in args.exclude:
+        scan_args.extend(["--exclude", name])
     if args.include_ghsa:
         scan_args.append("--include-ghsa")
     if args.include_threat_intel:

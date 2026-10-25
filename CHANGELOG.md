@@ -2,6 +2,18 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
+## 1.7.0 - Unreleased
+
+### Added
+
+- Offline, read-only developer trust inventory with multiple roots, bounded discovery, Python/certifi/pip-vendored bundles, static Node evidence, custom PEM paths and a scoped overview. Findings describe evidence and coverage, not device compromise or demonstrated TLS acceptance.
+- Official incident guidance and exact certificate evidence, including separate runtime and interpreter-compatibility limitations.
+
+### Fixed
+
+- Scope dependency triage evidence to the selected project and support directory exclusions in project scans.
+- Preserve matches in malformed bundles, parse bounded metadata snapshots without reopening files, and escape inspected text in Markdown reports.
+
 ## 1.6.6 - 2026-07-29
 
 ### Fixed
