@@ -43,6 +43,7 @@ def run_project_scan(
     *,
     root: str,
     ecosystems: list[str] | None = None,
+    excludes: list[str] | None = None,
     include_installed: bool = False,
     include_ghsa: bool = False,
     ghsa_max_packages: int = 50,
@@ -145,6 +146,7 @@ def run_project_scan(
     handoff_path = None
     scan_scope: dict = {}
     scan_policy: dict = {
+        "excluded_directory_names": list(excludes or []),
         "large_repo_mode": False,
         "large_repo_reason": None,
         "requested_max_seconds": max_seconds,
@@ -172,7 +174,7 @@ def run_project_scan(
             roots=[root],
             ecosystems=selected_ecosystems,
             include_installed=include_installed,
-            excludes=[],
+            excludes=excludes or [],
             engine=engine,
         ),
         )

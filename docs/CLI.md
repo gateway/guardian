@@ -149,21 +149,50 @@ That gate validates plugin manifests, Claude packaging, skill metadata, Python c
 
 ## Trust audit
 
+For ordinary dependency scans, `guardian scan PATH --include-installed --exclude data`
+excludes stored data and cached templates from inventory. The project-scan skill
+runner also accepts repeated `--exclude NAME`. Exclusions are directory basenames
+and are recorded in the scan policy. Project-specific triage uses only that
+project's package occurrences, even when the state database contains other roots.
+
 ```bash
 guardian trust-audit
 guardian trust-audit --root ~/development --json
+guardian trust-audit --root ~/work --root ~/personal --exclude data --json
+guardian trust-audit --node /path/to/node-installation/bin/node --json
+guardian trust-audit --bundle /path/to/custom-ca.pem --max-directories 5000 --json
 guardian trust-audit --root ~/development --output trust-audit.md
 ```
 
 This offline, read-only macOS inventory checks `/etc/ssl/cert.pem`, Homebrew
 CA/OpenSSL bundles and Python site-packages under `/opt/homebrew` and
 `/usr/local`, Python.org Python/PythonT frameworks, and user Python installations
-under `~/Library/Python`. Optional `--root` discovers nested environments by
+under `~/Library/Python`. Repeatable `--root` discovers nested environments by
 `pyvenv.cfg`, including custom environment names. Discovery prunes dependency,
 VCS, build and cache trees and does not follow directory symlinks. It inspects
 immediate installed distribution metadata and the exact `certifi/cacert.pem`
 and `pip/_vendor/certifi/cacert.pem` paths, never package source trees.
-Known bundle symlinks are resolved and deduplicated. Files are limited to 4 MiB.
+Overlapping roots and shared environments produce one environment/package result.
+Repeat `--exclude NAME` to skip extra directory basenames (for example `data`
+for stored app data and cached templates). Roots are explicit; no whole-home scan
+runs automatically. Known bundle symlinks are resolved and deduplicated.
+Metadata and PEM files are limited to 4 MiB.
+Directory discovery is capped at 10,000 visited directories per root by default.
+`--max-directories N` adjusts this bound; truncation is reported as unverified
+coverage. Repeatable `--bundle PATH` selects additional PEM bundles explicitly,
+without sourcing configuration or assuming that an application uses them.
+
+Node coverage is static: known Homebrew installations, absolute PATH entries,
+standard nvm/Volta/asdf/fnm layouts, `bin/node` installations beneath selected
+roots, and repeatable explicit `--node` paths. Executables and sibling
+`lib/libnode*.dylib` files are inspected for embedded PEM fingerprints, with a
+128 MiB limit per file. No Node executable, shim, project script or package is
+launched. Installation headers (`include/node/node_version.h`) provide version
+evidence; they do not attest which executable an application actually runs.
+Unknown layouts, headers, or release lines remain unverified. Published fixes
+are tracked independently for Node 22, 24 and 26; a fix on one release line
+does not establish a fix on another. Embedded PEM absence cannot establish
+effective trust, and external libraries outside this layout are not inspected.
 
 The small bundled eMudhra evidence snapshot has verification dates, exact DER
 fingerprints, official advisory links and published package fixes. It is not a
@@ -171,17 +200,44 @@ live feed or broad CVE scan. Package versions alone produce review candidates;
 local patches, inactive installations and runtime overrides can change exposure.
 The certifi security fix is 2026.10.18; the Python guidance recommends 2026.10.19
 for compatibility. Upgrading certifi alone does not update pip's vendored copy.
+Environment versions are read from `pyvenv.cfg`, never by launching Python.
+Pip's recommended fix requires Python >=3.10: environments reporting an older
+interpreter receive an incompatible-recommendation warning. Missing interpreter
+metadata yields unknown compatibility; it does not imply an upgrade is safe.
+HTTPX/httpcore and other transport packages are reported as context without
+inventing incident-specific affected-version ranges.
 No packages are imported or executed, and no remediation runs.
 
 Reports distinguish `demonstrated_failure`, `review_candidate`,
-`no_matching_findings`, and `unverified`. This static first version performs no
+`no_matching_findings`, and `unverified`. This static inventory performs no
 TLS probes, so it never claims demonstrated acceptance failures. Fingerprint
 matches establish certificate presence only. No match does not establish safe
 TLS. Keychain policy, browser revocation, inherited system-site-packages,
 `.pth`/editable imports, Conda/pyenv installations outside the listed layouts,
-archives, embedded binaries, cross-signed variants and SPKI-equivalent
-certificates are not verified. On other platforms, macOS checks are explicitly
+archives, embedded binaries other than the explicit Node layouts, unlisted cross-signed variants and SPKI-equivalent
+certificates are not verified. The evidence includes the parent root and Apple's
+12 published TLS intermediate certificate fingerprints, not all possible chains
+or certificates sharing the compromised keys. On other platforms, macOS checks are explicitly
 unverified; optional environment inspection remains available.
+
+JSON schema version 2 adds canonical `roots`, per-root discovery counts and
+excluded names, `environment_details` (including source roots and Python version),
+Node runtime items, and `absent_optional_locations`. The legacy `root` field
+remains populated for one requested root and is null for zero/multiple roots.
+Missing optional system installations are listed separately, not counted as
+unverified. A missing bundle belonging to an installed package, broken symlink,
+or unreadable file remains unverified. Counts describe evidence entries, not
+independent vulnerabilities. Node versions and package versions do not prove
+effective application trust even when their version checks have no matches.
+Node `version_status` is separate from the runtime item's status: an updated
+header alone leaves runtime trust unverified. Positive fingerprint matches are
+preserved even when another certificate in the same file is malformed.
+
+The `overview` separates development-root evidence from shared tooling and marks
+discovery completion, without a whole-system safety score. It explicitly states
+that neither device compromise nor TLS acceptance was assessed. See
+[Developer trust inventory](TRUST_AUDIT.md) for vendor research, report semantics
+and scope-selection guidance.
 
 The command bypasses Guardian configuration loading, catalog seeding and SQLite
 initialization. The launcher disables Python bytecode writes and ignores user/

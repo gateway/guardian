@@ -76,6 +76,9 @@ python3 "$REPO_ROOT/scripts/run_fixture_tests.py"
 echo "== offline trust audit =="
 python3 -B "$REPO_ROOT/scripts/test_trust_audit.py"
 
+echo "== project triage root scope =="
+python3 -B "$REPO_ROOT/scripts/test_triage_root_scope.py"
+
 echo "== pre-install gate =="
 python3 "$REPO_ROOT/scripts/test_preinstall_gate.py"
 

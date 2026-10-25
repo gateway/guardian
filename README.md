@@ -69,6 +69,12 @@ Legitimate installs pass through untouched. Network failures fail open with an e
 
 Guardian does not edit dependency files, install project dependencies, or execute arbitrary project code during normal scans.
 
+For incident-specific developer trust inventory, `guardian trust-audit` inspects
+selected development roots, Python environments, known Node installations and
+macOS/Homebrew PEM bundles offline. Its overview identifies review candidates
+and coverage gaps; it does not diagnose device compromise or certify safe TLS.
+See [Developer trust inventory](docs/TRUST_AUDIT.md) for scope, evidence and examples.
+
 ```text
 Project evidence
   -> read-only inventory

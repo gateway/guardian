@@ -18,7 +18,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init")
 
     trust = sub.add_parser("trust-audit", help="Offline macOS certificate trust inventory")
-    trust.add_argument("--root", help="Discover Python environments below this folder")
+    trust.add_argument("--root", action="append", default=[], help="Development folder to inspect; repeat for multiple roots")
+    trust.add_argument("--node", action="append", default=[], help="Additional Node executable to inspect as data (never executed); repeatable")
+    trust.add_argument("--bundle", action="append", default=[], help="Additional PEM CA bundle to inspect; repeatable")
+    trust.add_argument("--max-directories", type=int, default=10000, help="Maximum visited directories per development root (default: 10000)")
+    trust.add_argument("--exclude", action="append", default=[], help="Additional directory basename to skip during root discovery; repeatable")
     trust.add_argument("--json", action="store_true")
     trust.add_argument("--output", help="Write a new Markdown report at this path")
 
@@ -37,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     project_scan.add_argument("--max-seconds", type=int)
     project_scan.add_argument("--ecosystem", action="append", default=[])
     project_scan.add_argument("--include-installed", action="store_true")
+    project_scan.add_argument("--exclude", action="append", default=[], help="Directory basename to exclude from inventory; repeatable")
     project_scan.add_argument("--include-ghsa", action="store_true")
     project_scan.add_argument("--ghsa-max-packages", type=int, default=50)
     project_scan.add_argument("--include-threat-intel", action="store_true")

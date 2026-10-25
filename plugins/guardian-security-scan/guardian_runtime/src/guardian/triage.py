@@ -150,10 +150,12 @@ def enriched_issues(
     occurrence_cache: dict[tuple[str, str, str], list[dict]] = {}
     package_context_cache: dict[tuple[str, str, str], dict] = {}
     if root_filter:
-        root_keys = {
-            _package_key(row["ecosystem"], row["normalized_name"], row["version"])
-            for row in db.current_packages_for_root(root_filter)
-        }
+        # Scope occurrences before enrichment, not only the package-name list.
+        # Otherwise another repo can supply runtime roles and manifest paths.
+        for row in db.current_packages_for_root(root_filter):
+            key = _package_key(row["ecosystem"], row["normalized_name"], row["version"])
+            occurrence_cache.setdefault(key, []).append(dict(row))
+        root_keys = set(occurrence_cache)
         filtered = []
         for issue in issues:
             kept_packages = [
@@ -202,6 +204,8 @@ def hygiene_report(
         if exclude_keys and key in exclude_keys:
             continue
         grouped_rows.setdefault(key, []).append(item)
+
+    occurrence_cache.update(grouped_rows)
 
     candidate_profiles = []
     for key, row_group in grouped_rows.items():

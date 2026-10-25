@@ -119,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
                 db,
                 root=root,
                 ecosystems=args.ecosystem or None,
+                excludes=args.exclude,
                 include_installed=mode_options["include_installed"],
                 include_ghsa=mode_options["include_ghsa"],
                 ghsa_max_packages=args.ghsa_max_packages,
