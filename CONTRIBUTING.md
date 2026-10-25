@@ -9,6 +9,8 @@ Thanks for helping make dependency security better for AI coding agents.
 - **Read-only boundary**: normal scans never edit project files, install dependencies, or execute project code. Anything that shells out must be opt-in or mode-gated and visible in output.
 - **Evidence-first output**: new signals need a grade (see `guardian_runtime/src/guardian/signals.py`) and must degrade to a `source_contract` entry on failure instead of failing the scan.
 
+The offline `trust-audit` inventory is separate from the network-backed signal pipeline: it reports review candidates, no matching findings and unverified coverage directly, without initializing scan state or a database. It must never infer device compromise or successful TLS acceptance from static evidence.
+
 ## Development setup
 
 ```bash
