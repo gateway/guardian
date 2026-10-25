@@ -668,8 +668,15 @@ def run_cli(args) -> int:
         )
         if args.output:
             # Explicit output is the only write. Never overwrite input or existing reports.
-            with Path(args.output).expanduser().open("x", encoding="utf-8") as stream:
-                stream.write(render_report(report, markdown=True))
+            output = Path(args.output).expanduser()
+            if output.suffix.lower() in {".html", ".htm"}:
+                from .trust_audit_html import render_html
+
+                content = render_html(report)
+            else:
+                content = render_report(report, markdown=True)
+            with output.open("x", encoding="utf-8") as stream:
+                stream.write(content)
         print(
             json.dumps(report, indent=2) if args.json else render_report(report),
             end="\n" if args.json else "",

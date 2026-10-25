@@ -247,3 +247,35 @@ startup behavior of the Python interpreter you choose. JSON goes to stdout; `--o
 Markdown file without overwriting existing files or creating parent directories.
 Exit status is 0 for completed inventory (including review/unverified results),
 and 2 for argument or report-output errors. Consult JSON counts for findings.
+
+
+### Three-view Trust Audit HTML report
+
+An explicit `--output report.html` (or `.htm`, case-insensitive) creates a self-contained
+HTML report. Other extensions retain Markdown output. Existing output files are
+never overwritten. `--json` still emits the unchanged audit JSON to stdout and may
+be combined with either report format. No default report or state is created.
+
+The HTML file includes Project environments, Machine tooling, and What you ship
+views. Every evidence item appears once, including no-match and unverified evidence.
+For overlapping roots, the most specific containing root owns the displayed row;
+containment is scope, not proof that an application uses the installation. Files
+outside selected roots appear under shared machine tooling. Shared environments
+must be selected explicitly; the renderer does not inspect project configuration.
+
+Each selected root has a review-only Codex handoff and a release-review handoff.
+The machine view has a shared-tooling handoff. Copy buttons only copy text; when
+clipboard access is unavailable, the prompt expands for manual selection. No
+messages, commands, upgrades or remediation are executed. Release coverage is always
+**Not assessed**; this feature does not scan images, setup scripts or shipped artifacts.
+
+Recommendations use the bundled evidence snapshot, never a live latest-version
+lookup. Incompatible Python recommendations are shown as environment-migration
+planning. Node fixes apply only to verified release lines. Bundle evidence may
+reference a corresponding package's route only when unambiguous metadata exists in
+the same site-packages directory. The package and bundle remain separate rows.
+
+The file needs no web server, fonts, external assets or runtime dependencies.
+Official HTTPS links contact their destinations only when opened by the user.
+With JavaScript disabled, all views remain readable; print output includes all views.
+The report and prompts contain local paths: review them before sharing.
