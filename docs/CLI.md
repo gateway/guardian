@@ -145,3 +145,49 @@ Before publishing a release, run:
 ```
 
 That gate validates plugin manifests, Claude packaging, skill metadata, Python compilation, version-matching checks, fixture scans, and local marketplace/cache smoke tests.
+
+
+## Trust audit
+
+```bash
+guardian trust-audit
+guardian trust-audit --root ~/development --json
+guardian trust-audit --root ~/development --output trust-audit.md
+```
+
+This offline, read-only macOS inventory checks `/etc/ssl/cert.pem`, Homebrew
+CA/OpenSSL bundles and Python site-packages under `/opt/homebrew` and
+`/usr/local`, Python.org Python/PythonT frameworks, and user Python installations
+under `~/Library/Python`. Optional `--root` discovers nested environments by
+`pyvenv.cfg`, including custom environment names. Discovery prunes dependency,
+VCS, build and cache trees and does not follow directory symlinks. It inspects
+immediate installed distribution metadata and the exact `certifi/cacert.pem`
+and `pip/_vendor/certifi/cacert.pem` paths, never package source trees.
+Known bundle symlinks are resolved and deduplicated. Files are limited to 4 MiB.
+
+The small bundled eMudhra evidence snapshot has verification dates, exact DER
+fingerprints, official advisory links and published package fixes. It is not a
+live feed or broad CVE scan. Package versions alone produce review candidates;
+local patches, inactive installations and runtime overrides can change exposure.
+The certifi security fix is 2026.10.18; the Python guidance recommends 2026.10.19
+for compatibility. Upgrading certifi alone does not update pip's vendored copy.
+No packages are imported or executed, and no remediation runs.
+
+Reports distinguish `demonstrated_failure`, `review_candidate`,
+`no_matching_findings`, and `unverified`. This static first version performs no
+TLS probes, so it never claims demonstrated acceptance failures. Fingerprint
+matches establish certificate presence only. No match does not establish safe
+TLS. Keychain policy, browser revocation, inherited system-site-packages,
+`.pth`/editable imports, Conda/pyenv installations outside the listed layouts,
+archives, embedded binaries, cross-signed variants and SPKI-equivalent
+certificates are not verified. On other platforms, macOS checks are explicitly
+unverified; optional environment inspection remains available.
+
+The command bypasses Guardian configuration loading, catalog seeding and SQLite
+initialization. The launcher disables Python bytecode writes and ignores user/
+project Python startup code (`PYTHONPATH`, site customizations and `.pth` files).
+Use the launcher for these guarantees; a direct module invocation inherits the
+startup behavior of the Python interpreter you choose. JSON goes to stdout; `--output PATH` explicitly creates a new
+Markdown file without overwriting existing files or creating parent directories.
+Exit status is 0 for completed inventory (including review/unverified results),
+and 2 for argument or report-output errors. Consult JSON counts for findings.

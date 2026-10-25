@@ -17,6 +17,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init")
 
+    trust = sub.add_parser("trust-audit", help="Offline macOS certificate trust inventory")
+    trust.add_argument("--root", help="Discover Python environments below this folder")
+    trust.add_argument("--json", action="store_true")
+    trust.add_argument("--output", help="Write a new Markdown report at this path")
+
     diet = sub.add_parser("diet")
     diet_sub = diet.add_subparsers(dest="diet_command", required=True)
     diet_scan = diet_sub.add_parser("scan")

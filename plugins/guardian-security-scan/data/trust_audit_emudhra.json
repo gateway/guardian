@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "incident": "emudhra-2026-10",
+  "verified_on": "2026-10-25",
+  "scope": "Exact DER fingerprint of the emSign ECC G3 root; installed Python package versions. Not a complete intermediate/SPKI blocklist.",
+  "certificates": [
+    {
+      "name": "emSign ECC Root CA - G3",
+      "sha256": "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b",
+      "source": "https://github.com/certifi/python-certifi/blob/2025.01.31/certifi/cacert.pem"
+    }
+  ],
+  "sources": [
+    "https://github.com/certifi/python-certifi/security/advisories/GHSA-6q48-6c7w-9gw2",
+    "https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576/1",
+    "https://blog.google/security/protecting-chrome-and-android-users-from-compromised-emudhra-intermediate-ca-certificates/"
+  ],
+  "packages": {
+    "certifi": {
+      "introduced": "2019.3.9",
+      "fixed": "2026.10.18",
+      "recommended": "2026.10.19"
+    },
+    "pip": {
+      "fixed": "26.2.2"
+    },
+    "uv": {
+      "fixed": "0.13.4"
+    },
+    "sigstore": {
+      "fixed": "4.5.1"
+    },
+    "conda": {
+      "fixed": "26.9.4"
+    },
+    "pixi": {
+      "fixed": "0.82.1"
+    }
+  },
+  "guidance": "Use the official Python guidance to securely upgrade affected installations and every existing environment. Upgrade pip separately: updating standalone certifi does not replace pip's vendored bundle. For system/Homebrew bundles, apply vendor trust-store updates and re-audit; no macOS fixed version is asserted."
+}
