@@ -88,6 +88,9 @@ Project evidence
 
 Guardian is evidence-first. It should not tell an agent to upgrade a package unless the package version, advisory match, dependency context, and project evidence support that recommendation.
 
+Trust Audit can export a self-contained three-view HTML report with `--output report.html`, including separate evidence rows and copy-only Codex review handoffs. See [CLI documentation](docs/CLI.md#three-view-trust-audit-html-report). Release coverage remains **Not assessed**.
+
+
 ## Ecosystem Coverage
 
 Not every feature applies to every ecosystem. Guardian's rule is to say exactly what it checked, so here is the current matrix:

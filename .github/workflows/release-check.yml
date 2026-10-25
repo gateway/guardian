@@ -36,7 +36,7 @@ jobs:
       - name: Check Trust Audit lint and formatting
         run: |
           python -m pip install ruff==0.17.2
-          files=(plugins/guardian-security-scan/guardian_runtime/src/guardian/trust_audit*.py scripts/test_trust_audit.py scripts/test_triage_root_scope.py)
+          files=(plugins/guardian-security-scan/guardian_runtime/src/guardian/trust_audit*.py scripts/test_trust_audit*.py scripts/test_triage_root_scope.py)
           ruff check --isolated --target-version py39 --select E4,E7,E9,F,B --per-file-ignores 'scripts/test_*.py:E402' "${files[@]}"
           ruff format --isolated --check "${files[@]}"
 

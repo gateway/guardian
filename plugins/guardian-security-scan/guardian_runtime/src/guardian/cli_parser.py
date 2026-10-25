@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     trust.add_argument("--max-directories", type=int, default=10000, help="Maximum visited directories per development root (default: 10000)")
     trust.add_argument("--exclude", action="append", default=[], help="Additional directory basename to skip during root discovery; repeatable")
     trust.add_argument("--json", action="store_true")
-    trust.add_argument("--output", help="Write a new Markdown report at this path")
+    trust.add_argument("--output", help="Write a new report (.html/.htm for three-view HTML; otherwise Markdown)")
 
     diet = sub.add_parser("diet")
     diet_sub = diet.add_subparsers(dest="diet_command", required=True)

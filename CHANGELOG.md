@@ -2,7 +2,15 @@
 
 All notable Guardian changes are recorded here. Versions refer to the bundled Codex and Claude Code plugin manifests.
 
-## 1.7.0 - Unreleased
+## 1.8.0 - Unreleased
+
+### Added
+
+- Explicit HTML Trust Audit reports with project, machine-tooling and unassessed release views; each evidence item remains a separate row.
+- Scope-specific, copy-only Codex review handoffs and snapshot-based recommendations with official sources and compatibility constraints.
+- Offline report assets, markup escaping, a restrictive content policy, and tests for report scope, controls and explicit-output-only writes. JSON schema and Markdown defaults are unchanged.
+
+## 1.7.0 - 2026-10-25
 
 ### Added
 

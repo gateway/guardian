@@ -75,6 +75,12 @@ python3 "$REPO_ROOT/scripts/run_fixture_tests.py"
 
 echo "== offline trust audit =="
 python3 -B "$REPO_ROOT/scripts/test_trust_audit.py"
+python3 -B "$REPO_ROOT/scripts/test_trust_audit_html.py"
+if command -v node >/dev/null 2>&1; then
+  node "$REPO_ROOT/scripts/test_trust_audit_report_ui.cjs"
+else
+  echo "Node not found; skipped HTML interaction unit tests"
+fi
 
 echo "== project triage root scope =="
 python3 -B "$REPO_ROOT/scripts/test_triage_root_scope.py"
